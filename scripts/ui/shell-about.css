@@ -1,0 +1,191 @@
+/* 由 deepseek-shell/scripts/apply-shell-ui.mjs 注入到 dist/
+   作用：在主页右上角提供「关于」入口，展示开源许可声明。
+   全部样式复用 chat-demo 自己的主题变量，因此明/暗主题自动协调。 */
+
+.dsh-about-btn {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  right: 10px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--dsw-alias-label-primary, #1a1a1a);
+  z-index: 940;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s ease, right 0.2s ease;
+}
+
+/* 聊天页右上角已有「新对话」按钮时，让位到它左边 */
+.dsh-about-btn[data-shifted='1'] {
+  right: 62px;
+}
+
+/* 触屏上 :hover 会粘住（点完一直有个灰底），所以只在真正支持悬停的设备上生效 */
+@media (hover: hover) {
+  .dsh-about-btn:hover {
+    background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.06));
+  }
+}
+
+.dsh-about-btn:active {
+  background: var(--dsw-alias-interactive-bg-active, rgba(0, 0, 0, 0.1));
+}
+
+.dsh-about-btn:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary, #4d6bfe);
+  outline-offset: 2px;
+}
+
+.dsh-about-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 998;
+  animation: dsh-about-fade 0.16s ease;
+}
+
+.dsh-about-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--dsw-alias-bg-base, #fff);
+  color: var(--dsw-alias-label-primary, #111);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
+  z-index: 999;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  animation: dsh-about-slide 0.2s ease;
+}
+
+.dsh-about-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 10px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgba(0, 0, 0, 0.08));
+  flex: 0 0 auto;
+}
+
+.dsh-about-title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.dsh-about-close {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary, #666);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .dsh-about-close:hover {
+    background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.06));
+  }
+}
+
+.dsh-about-close:active {
+  background: var(--dsw-alias-interactive-bg-active, rgba(0, 0, 0, 0.1));
+}
+
+.dsh-about-panel:focus {
+  outline: none;
+}
+
+.dsh-about-body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 16px 20px;
+  flex: 1 1 auto;
+}
+
+.dsh-about-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.dsh-about-meta dt {
+  color: var(--dsw-alias-label-secondary, #666);
+  white-space: nowrap;
+}
+
+.dsh-about-meta dd {
+  margin: 0;
+  color: var(--dsw-alias-label-primary, #111);
+  word-break: break-word;
+}
+
+.dsh-about-note {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-2, rgba(0, 0, 0, 0.04));
+  color: var(--dsw-alias-label-secondary, #666);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.dsh-about-section-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dsh-about-pre {
+  margin: 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-2, rgba(0, 0, 0, 0.04));
+  color: var(--dsw-alias-label-secondary, #555);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.dsh-about-loading {
+  font-size: 13px;
+  color: var(--dsw-alias-label-tertiary, #888);
+}
+
+@keyframes dsh-about-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dsh-about-slide {
+  from { transform: translateY(12px); opacity: 0.6; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dsh-about-backdrop,
+  .dsh-about-panel {
+    animation: none;
+  }
+}

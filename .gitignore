@@ -1,0 +1,43 @@
+# ---- 依赖 ----
+node_modules/
+
+# ---- 构建产物 ----
+# dist/ 保留入库：它是 webDir，没有它就无法构建 APK（内容来自 DeepSeek 开源前端 chat-demo，MIT）
+# 下面这些是 `cap sync` / Gradle / Xcode 生成的，可随时重建，不入库
+android/build/
+android/.gradle/
+android/app/build/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/app/src/main/res/xml/config.xml
+android/capacitor-cordova-android-plugins/
+ios/App/build/
+ios/App/DerivedData/
+ios/App/App/public/
+ios/App/App/capacitor.config.json
+ios/App/App/capacitor.plugins.json
+ios/App/capacitor-cordova-ios-plugins/
+
+# 安装包（如需发布，请用 GitHub Releases，不要提交进 git）
+*.apk
+*.aab
+*.ipa
+
+# ---- 本机 / 编辑器 ----
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/
+
+# ---- 机密与本机配置 ----
+.env
+.env.*
+local.properties
+*.keystore
+*.jks
+*.p12
+
+# ---- 脚本临时产物 ----
+scripts/.stats-out/
