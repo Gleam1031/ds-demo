@@ -88,13 +88,15 @@ deepseek-app/
 
 ## 5. 壳层增强：脚本与机制（最容易被接手者忽略的部分）
 
-### 5.1 四个脚本
+### 5.1 脚本清单
 
 | 脚本 | 作用 |
 |---|---|
 | `scripts/gen-bundled-packages.mjs` | 用 rspack 统计**真正被打进产物**的第三方包 → 写 `scripts/bundled-packages.json`（当前 95 个） |
 | `scripts/gen-notices.mjs` | 按上述清单逐包抓 version/license/许可全文 → 生成 `THIRD_PARTY_NOTICES.txt`（根目录带 BOM；`dist/` 内无 BOM） |
-| `scripts/apply-shell-ui.mjs` | 把 `scripts/ui/shell-about.{js,css}` 复制进 `dist/` 并向 `dist/index.html` 注入 `<link>/<script>`（幂等，有标记防重复） |
+| `scripts/apply-shell-ui.mjs` | 把 `scripts/ui/` 下资源复制进 `dist/` 并向 `dist/index.html` 注入标签（**按资源逐个判断**，后续新增资源也能注入） |
+| `scripts/ui/shell-about.js` / `.css` | 「关于」按钮与许可面板 |
+| `scripts/ui/shell-onboarding.js` / `.css` | 首次启动引导页：解释 API Key → 官网三步操作 → 直接填写保存 |
 | `scripts/ui/shell-about.js` / `.css` | 「关于」按钮与许可面板的实现 |
 
 ### 5.2 「关于」入口的设计要点（改动前务必理解）
@@ -106,7 +108,17 @@ deepseek-app/
 - 面板聚焦面板本身（`tabindex=-1`）而不是关闭按钮，避免移动端出现焦点环
 - 关于页文案里含应用名与包名，改名时必须同步改 `shell-about.js` 里的 `PKG` 常量与「应用」那一行
 
-### 5.3 许可清单的两个坑（已踩过）
+### 5.3 首次启动引导页（onboarding）的设计要点
+
+- **触发条件**：`localStorage` 里既没有 `chat-demo:api-key`，也没有 `ds-onboarding-done` 标记
+- **层级 1100**：必须盖住 chat-demo 自带的设置弹窗（1000/1050）
+- **外链用普通 `<a href>`**：Capacitor 的 `shouldOverrideUrlLoading` 会对非 `localhost` 的主帧跳转调用 `launchIntent` → 系统浏览器（`Bridge.java` L414-424），App 界面不会丢。**不要改用 `window.open`**（`onCreateWindow` 未实现，可能毫无反应）
+- **保存流程**：写 `chat-demo:api-key` → 置 `ds-onboarding-done` → `location.reload()`，让 chat-demo 的 zustand store 重新读取
+  - ⚠️ 这里**依赖上游内部存储键** `chat-demo:api-key`（见 `chat-demo/src/services/settings.ts` 的 `KEYS`）。上游改版可能失效，失效后的回退是让用户去设置页手填 —— 不是致命问题，但要知情
+- **「稍后再说」**：置标记并移除本页，露出 chat-demo 自带设置页（同样有输入框），不会卡死
+- **三步文案**（注册/创建 Key/充值）基于 DeepSeek 开放平台当前界面，**平台改版后需同步**；文案集中在 `shell-onboarding.js` 一处，易改
+
+### 5.4 许可清单的两个坑（已踩过）
 
 1. 默认 rspack stats 会把模块折叠成 `./src/main.tsx + 156 modules`，只数出 37 个包 → 必须**关闭 module concatenation** 才能数全（95 个）
 2. 12 个 `micromark-*` 包**发布时本身就没带 LICENSE 文件**，清单里标注了 `license` 字段与上游仓库地址，**不要伪造许可文本**
@@ -233,16 +245,17 @@ adb -s 10AF5B2FFY002LY install -r "…\app-debug.apk"
 
 ## 11. 待决事项 / 可选的下一步
 
-1. **GitHub 发布方式未定**。用户担心商标/被起诉，讨论过三种：
-   - 仓库设 Private（风险归零）
+1. **GitHub 已发布（2026-11-21）**：仓库 <https://github.com/Gleam1031/no-name-yet>，**当前是 public**，`main` 分支首个提交 `78acd1c`（247 文件 / 5.6 MB）。用户对商标/起诉仍有顾虑，讨论过三种处置：
+   - 设为 Private（风险归零，最彻底）
    - 公开源码但不挂 APK Release（最稳的公开方案）
    - 公开源码 + Release 挂 APK（可接受，但需保留免责声明）
-   → 接手者**先问用户选哪种**，不要擅自 push
+   → 接手者**先问用户**，不要擅自改可见性或发 Release
+   → 本机 push 需带 `-c http.sslVerify=false`（hosts 把 github.com 导到了本地代理），详见 7.1
 2. **iOS 从未构建过**（需 macOS + Xcode）。工程已同步，bundle id 已改。
 3. **应用图标**仍是 Capacitor 默认图标，用户尚未要求更换。
 4. **旧包 `com.deepseek.shell` 仍在手机上**，是否卸载由用户决定。
 5. 迁移数据：新包是空数据。可用旧版「导出所有历史对话」→ 新版「导入历史对话」把聊天记录搬过去（API Key 需重填）。
-6. 可选增强：首次启动的"非官方"提示弹窗（一次性，本地记住）。
+6. 首次启动引导页**已实现**（`shell-onboarding`），含"非官方"声明；待办：真人验证一遍外链跳转与保存链路。
 
 ---
 

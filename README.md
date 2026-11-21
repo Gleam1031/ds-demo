@@ -46,6 +46,9 @@ deepseek-app/
 | 「关于」入口（真机 720×1608） | ✅ 主页右上角 ⋮；进入会话页后自动让位到「新对话」左侧（`right:10px` → `right:62px`） |
 | 许可声明随包分发（真机） | ✅ APK 内 `assets/public/LICENSE` + `assets/public/THIRD_PARTY_NOTICES.txt`（208 KB / 95 个第三方包），关于页可滚动阅读全文 |
 | 改名后的共存（真机） | ✅ 显示名 **DS Demo**、包名 `com.dsdemo.shell`；与旧包 `com.deepseek.shell` 并存，旧包 `firstInstallTime` 未变（未被覆盖） |
+| 导入历史对话（真机） | ✅ 设置 → 数据管理 → 上传，实测导入 DeepSeek 导出的官方 ZIP（`export_format_version: 3`）；会话、附件与消息分支字段均完整落地，界面正常渲染 |
+| 首启引导页（真机） | ✅ 无 Key 的新装用户首启进入引导页；已有 Key 则自动跳过 |
+| 引导页外链（真机） | ✅ 点击后前台切换为 `com.vivo.browser/.BrowserActivity`，走**系统浏览器**打开官网，App 界面不被顶掉 |
 
 手机视口渲染预览（390×844，由本地静态服务 + 无头浏览器实测）：
 
@@ -59,9 +62,29 @@ deepseek-app/
 | --- | --- |
 | ![关于入口](docs/device-home-about-entry.png) | ![关于面板](docs/device-about-panel.png) |
 
+首次启动引导页（真机，同一页的上/下两屏）：
+
+| 上半：为什么需要 Key + 官网三步 | 下半：粘贴保存 / 稍后再说 |
+| --- | --- |
+| ![引导页上半](docs/device-onboarding-1.png) | ![引导页下半](docs/device-onboarding-2.png) |
+
+## 首次启动引导页
+
+没有 API Key 的人打开 App 会一脸茫然（不知道 Key 是什么、去哪申请、拿到往哪填）。所以首次启动会显示一屏引导：
+
+1. 一句话解释 API Key 是什么、按量计费；
+2. **官网三步操作**：注册/登录 → 创建 API Key（提醒"只显示一次，先复制"）→ 充值；
+3. 一个「去 DeepSeek 官网申请 API Key」按钮（**系统浏览器**打开官方页面）；
+4. 一个输入框 + 「保存并开始聊天」，保存后直接进聊天，不用自己去找设置；
+5. 「稍后再说」则落回 chat-demo 自带设置页（那里也有输入框），不会卡死。
+
+仅当**本地没有 Key 且未点过跳过**时出现；已有 Key 的用户不会被打扰。
+
+> 实现方式：`scripts/ui/shell-onboarding.js` 注入，不改 chat-demo 源码。保存时写入它自己的存储键 `chat-demo:api-key` 后 `location.reload()` —— 这是对上游内部实现的依赖，详见 `HANDOVER.md` 第 5.3 节。
+
 ## 填入 API Key
 
-首次启动会弹出「设置」面板（即上图），在 **输入 API Key** 里粘贴你自己的 DeepSeek API Key 即可开始对话。
+首次启动会先显示上面的**引导页**：照着三步去官网拿 Key，回来粘贴进输入框即可；点「稍后再说」则会落到官方 demo 自带的「设置」面板，那里同样有输入框。
 
 - Key 通过官方 demo 自己的设置页保存在本机 WebView 存储（localStorage），**不经过本壳项目的任何代码**，也不会打包进 APK/IPA
 - 之后可随时从左上角菜单 → 设置重新修改
