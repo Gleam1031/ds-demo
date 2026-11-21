@@ -1,0 +1,199 @@
+/* 由 deepseek-shell/scripts/apply-shell-ui.mjs 注入到 dist/
+   首次启动的引导页：解释 API Key、给出获取步骤、直接填写保存。
+   层级 1100：盖住 chat-demo 自带的设置弹窗（1000+）与「关于」面板（999）。 */
+
+.dsh-onb {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  background: var(--dsw-alias-bg-base, #fff);
+  color: var(--dsw-alias-label-primary, #111);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: calc(env(safe-area-inset-top, 0px) + 20px) 18px
+    calc(env(safe-area-inset-bottom, 0px) + 20px);
+}
+
+.dsh-onb-inner {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dsh-onb-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.dsh-onb-lede {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--dsw-alias-label-secondary, #666);
+}
+
+.dsh-onb-block {
+  border: 1px solid var(--dsw-alias-border-l1, rgba(0, 0, 0, 0.09));
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--dsw-alias-bg-layer-2, rgba(0, 0, 0, 0.03));
+}
+
+.dsh-onb-block-title {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dsh-onb-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: dsh-step;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dsh-onb-steps li {
+  counter-increment: dsh-step;
+  position: relative;
+  padding-left: 30px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--dsw-alias-label-secondary, #555);
+}
+
+.dsh-onb-steps li::before {
+  content: counter(dsh-step);
+  position: absolute;
+  left: 0;
+  top: 1px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--dsw-alias-brand-primary, #4d6bfe);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+}
+
+.dsh-onb-steps b {
+  color: var(--dsw-alias-label-primary, #111);
+  font-weight: 600;
+}
+
+.dsh-onb-warn {
+  display: block;
+  margin-top: 4px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: rgba(255, 149, 0, 0.12);
+  color: #a86100;
+  font-size: 12.2px;
+  line-height: 1.55;
+}
+
+.dsh-onb-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 46px;
+  border-radius: 12px;
+  border: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.16));
+  background: var(--dsw-alias-bg-base, #fff);
+  color: var(--dsw-alias-brand-text, #4d6bfe);
+  font-size: 14.5px;
+  font-weight: 600;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dsh-onb-link:active {
+  background: var(--dsw-alias-interactive-bg-active, rgba(0, 0, 0, 0.07));
+}
+
+.dsh-onb-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.16));
+  background: var(--dsw-alias-bg-base, #fff);
+  color: var(--dsw-alias-label-primary, #111);
+  font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  outline: none;
+}
+
+.dsh-onb-input:focus {
+  border-color: var(--dsw-alias-brand-primary, #4d6bfe);
+}
+
+.dsh-onb-primary {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--dsw-alias-button-primary-fill, #4d6bfe);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dsh-onb-primary:disabled {
+  opacity: 0.45;
+}
+
+.dsh-onb-skip {
+  align-self: center;
+  margin-top: 2px;
+  padding: 8px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary, #888);
+  font-size: 13px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dsh-onb-foot {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--dsw-alias-label-tertiary, #999);
+  text-align: center;
+}
+
+.dsh-onb-err {
+  display: none;
+  font-size: 12.5px;
+  color: #d33;
+}
+
+.dsh-onb-err[data-show='1'] {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  .dsh-onb-warn {
+    background: rgba(255, 159, 10, 0.16);
+    color: #f0b45c;
+  }
+}
