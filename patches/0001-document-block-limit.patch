@@ -1,0 +1,55 @@
+diff --git a/src/services/chat/reply.ts b/src/services/chat/reply.ts
+index 85322eb..f051408 100644
+--- a/src/services/chat/reply.ts
++++ b/src/services/chat/reply.ts
+@@ -296,6 +296,41 @@ export const getContextRounds = (history: Message[]): [UserMessage, AssistantMes
+   return rounds
+ }
+ 
++/**
++ * 服务端限制：一次请求最多 20 个 document 块（同一 file_id 被重复引用也各计一次）。
++ * 历史提问的附件每次请求都会重发，所以必须按整个请求算，不能只看本轮。
++ */
++const MAX_DOCUMENT_BLOCKS = 20
++/** 超出上限的 document 块换成这句说明，让模型知道有附件被省略 */
++const DOCUMENT_OMITTED_TEXT = '[附件已省略：单次请求最多引用 20 个文档]'
++
++/**
++ * 只保留最新的 MAX_DOCUMENT_BLOCKS 个 document 块，更早的替换为文字说明。
++ * messages 末尾是本轮提问，因此优先保留本轮附件。
++ */
++const pruneDocumentBlocks = (messages: MessageParam[]): MessageParam[] => {
++  let budget = MAX_DOCUMENT_BLOCKS
++  for (let i = messages.length - 1; i >= 0; i--) {
++    const message = messages[i]
++    if (message.role !== 'user' || typeof message.content === 'string') {
++      continue
++    }
++    const blocks = message.content
++    for (let j = blocks.length - 1; j >= 0; j--) {
++      const block = blocks[j]
++      if (block.type !== 'document') {
++        continue
++      }
++      if (budget > 0) {
++        budget -= 1
++        continue
++      }
++      blocks[j] = { type: 'text', text: DOCUMENT_OMITTED_TEXT }
++    }
++  }
++  return messages
++}
++
+ /**
+  * 把会话转成请求的 messages：只保留「提问 + 有回答的回复」成对的轮次，最后接上本轮提问。
+  * 失败或没有回答的轮次不进上下文。续写时末尾再带上本轮 assistant。
+@@ -339,7 +374,7 @@ export const toRequestMessages = (
+       messages.push(assistant)
+     }
+   }
+-  return messages
++  return pruneDocumentBlocks(messages)
+ }
+ 
+ /** 思考用时（秒），至少 1 秒 */

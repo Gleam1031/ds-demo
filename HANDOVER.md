@@ -80,7 +80,7 @@ deepseek-app/
 | Gradle | 8.14.3（wrapper 已就绪，发行包已植入缓存） |
 | 真机 | `10AF5B2FFY002LY`（vivo V2444A，720×1608 @320dpi → CSS 视口 360×804），WebView 126.0.6478.71 |
 | 手机上并存的两个包 | `com.dsdemo.shell`（新版，2026-11-20 装）＋ `com.deepseek.shell`（**旧版，用户要求保留，未覆盖**） |
-| chat-demo 工作区 | `git status` 干净（一行未改） |
+| chat-demo 工作区 | **有一处受控修改**：`src/services/chat/reply.ts`（document 块上限修复），见 `patches/0001-document-block-limit.patch` 与 5.5 节 |
 
 > 注意：旧包 `com.deepseek.shell` 仍叫 "DeepSeek"，是历史产物。用户明确要求**不要覆盖**它（里面有他的 API Key 与聊天记录）。
 
@@ -95,9 +95,9 @@ deepseek-app/
 | `scripts/gen-bundled-packages.mjs` | 用 rspack 统计**真正被打进产物**的第三方包 → 写 `scripts/bundled-packages.json`（当前 95 个） |
 | `scripts/gen-notices.mjs` | 按上述清单逐包抓 version/license/许可全文 → 生成 `THIRD_PARTY_NOTICES.txt`（根目录带 BOM；`dist/` 内无 BOM） |
 | `scripts/apply-shell-ui.mjs` | 把 `scripts/ui/` 下资源复制进 `dist/` 并向 `dist/index.html` 注入标签（**按资源逐个判断**，后续新增资源也能注入） |
-| `scripts/ui/shell-about.js` / `.css` | 「关于」按钮与许可面板 |
-| `scripts/ui/shell-onboarding.js` / `.css` | 首次启动引导页：解释 API Key → 官网三步操作 → 直接填写保存 |
 | `scripts/ui/shell-about.js` / `.css` | 「关于」按钮与许可面板的实现 |
+| `scripts/ui/shell-onboarding.js` / `.css` | 首次启动引导页：解释 API Key → 官网三步操作 → 直接填写保存 |
+| `scripts/apply-chat-demo-patches.mjs` | 把 `patches/*.patch` 幂等地应用到 `../chat-demo`（`--check` 只检查、不落地） |
 
 ### 5.2 「关于」入口的设计要点（改动前务必理解）
 
@@ -123,6 +123,25 @@ deepseek-app/
 1. 默认 rspack stats 会把模块折叠成 `./src/main.tsx + 156 modules`，只数出 37 个包 → 必须**关闭 module concatenation** 才能数全（95 个）
 2. 12 个 `micromark-*` 包**发布时本身就没带 LICENSE 文件**，清单里标注了 `license` 字段与上游仓库地址，**不要伪造许可文本**
 
+### 5.5 上游修复：单请求 document 块上限（`patches/0001`）
+
+**问题**：一次请求里 document 块超过 20 个时，服务端返回英文错误并让整轮对话失败：
+
+```
+messages: Too many documents: max 20 document blocks per request, got 27
+(repeated references to the same file_id count separately)
+```
+
+**关键认知**（容易搞错）：这个 20 是**单次请求**的总数，而 chat-demo 每次请求都会把**整段历史**的附件重新以 `document` 块发出（API 无状态），所以限制会**跨轮累计**——不是"每条消息 20 个"。
+
+**修法**：`toRequestMessages()` 末尾调用 `pruneDocumentBlocks()`，从**最新**往前保留 20 个 document 块，更早的替换成一句文字占位 `[附件已省略：单次请求最多引用 20 个文档]`。这样整轮不会失败，被省略的部分也不再发给模型。
+
+**验证方式**（可复现）：用 `createConfig({ apiOrigin: 'http://127.0.0.1:<mock>' })` 构建测试产物，mock 记录 `/anthropic/v1/messages` 请求体；无头浏览器通过 CDP `DOM.setFileInputFiles` 塞 21 个 txt 并发送，断言请求里 `document` 块 = 20、占位 = 1。注意 mock 的 CORS `access-control-allow-headers` **必须包含 `x-api-key`**，否则预检失败会误判成 App 的问题。
+
+> 图片块（`image`）不受此限，官方限单请求 600 张，所以**只裁 document，不裁 image**。
+
+**维护**：`node scripts/apply-chat-demo-patches.mjs`（幂等）。升级 chat-demo 后先跑它；若补丁因上游改动无法应用，脚本会报错退出而不是静默跳过。
+
 ---
 
 ## 6. 标准重建流程（改完东西后照这个走）
@@ -130,9 +149,10 @@ deepseek-app/
 ```powershell
 # 若只是改了壳层 UI / 清单（最常用）
 cd deepseek-app\deepseek-shell
-node scripts/apply-shell-ui.mjs      # 若动过 UI
-node scripts/gen-notices.mjs         # 若动过依赖
-npx cap sync                         # 同步进 android/ 与 ios/
+node scripts/apply-chat-demo-patches.mjs   # 保证上游修复在位（幂等）
+node scripts/apply-shell-ui.mjs            # 若动过 UI
+node scripts/gen-notices.mjs               # 若动过依赖
+npx cap sync                               # 同步进 android/ 与 ios/
 
 # 打包 APK
 cd android
@@ -261,7 +281,7 @@ adb -s 10AF5B2FFY002LY install -r "…\app-debug.apk"
 
 ## 12. 不要做的事（硬约束）
 
-1. ❌ 不要修改 `chat-demo/` 里的任何源文件（构建脚本的 POSIX 写法也不许改，用第 6 节的等价命令绕过）
+1. ⚠️ **不要随手改 `chat-demo/`**。确有必要修上游缺陷时，必须走 `patches/*.patch` + `scripts/apply-chat-demo-patches.mjs`，并在本节/5.5 节记录原因。目前只有一处：`0001-document-block-limit.patch`。构建脚本的 POSIX 写法**仍不许改**，用第 6 节的等价命令绕过。
 2. ❌ 不要在 `capacitor.config.json` 里加 `server.url`
 3. ❌ 不要卸载或覆盖手机上的旧包 `com.deepseek.shell`
 4. ❌ 不要删除 `~\.gradle\wrapper\dists\gradle-8.14.3-all\…`（删了必构建失败，见 7.1）
