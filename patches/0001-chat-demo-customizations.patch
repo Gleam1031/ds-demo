@@ -243,7 +243,7 @@ index 0000000..05fd3be
 +  )
 +}
 diff --git a/src/components/settings/Settings.module.css b/src/components/settings/Settings.module.css
-index f54e437..3a65b99 100644
+index f54e437..8a67336 100644
 --- a/src/components/settings/Settings.module.css
 +++ b/src/components/settings/Settings.module.css
 @@ -440,3 +440,206 @@
@@ -388,8 +388,8 @@ index f54e437..3a65b99 100644
 +}
 +
 +.personalizationSlider::-webkit-slider-runnable-track {
-+  height: 8px;
-+  border-radius: 4px;
++  height: 24px;
++  border-radius: 12px;
 +  background: linear-gradient(90deg, #6699ff 0%, #b899ff 100%);
 +}
 +
@@ -399,7 +399,7 @@ index f54e437..3a65b99 100644
 +  box-sizing: border-box;
 +  width: 20px;
 +  height: 20px;
-+  margin-top: -6px;
++  margin-top: 2px;
 +  border: 0;
 +  border-radius: 50%;
 +  background: #fff;
@@ -407,8 +407,8 @@ index f54e437..3a65b99 100644
 +}
 +
 +.personalizationSlider::-moz-range-track {
-+  height: 8px;
-+  border-radius: 4px;
++  height: 24px;
++  border-radius: 12px;
 +  background: linear-gradient(90deg, #6699ff 0%, #b899ff 100%);
 +}
 +

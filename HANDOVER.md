@@ -197,7 +197,7 @@ messages: Too many documents: max 20 document blocks per request, got 27
   ```
 
   实测计算值：浅色 `rgba(15,17,21,.42)`、深色 `rgba(249,250,251,.42)`；输入框与「恢复默认设置」按钮共用同一套边框。
-- 思考强度滑杆：`appearance:none` + `::-webkit-slider-runnable-track` 自绘轨道，高 **8px**（原默认约 4px 的两倍）、圆角、`linear-gradient(90deg, #6699FF, #B899FF)`；滑块是 20px 白色圆点。控件本身 `height: 40px` 作为触摸热区，`touch-action: pan-y`。
+- 思考强度滑杆：`appearance:none` + `::-webkit-slider-runnable-track` 自绘轨道，高 **24px**（足以包住 20px 的滑块，滑块用 `margin-top: 2px` 居中嵌在轨道里）、圆角、`linear-gradient(90deg, #6699FF, #B899FF)`；滑块是 20px 白色圆点。控件本身 `height: 40px` 作为触摸热区，`touch-action: pan-y`。
 
 **存储**（`services/settings.ts`）：
 
