@@ -186,6 +186,11 @@ messages: Too many documents: max 20 document blocks per request, got 27
 
 ### 5.8 个性化：系统提示词与思考强度
 
+**UI 细节**（`PersonalizationPanel.tsx` + `Settings.module.css`）：
+
+- 系统提示词框：**宽度随内容自适应**。用一个 `visibility:hidden; white-space:pre` 的镜像 `span` 量出单行文本宽度，取 `clamp(容器 1/3, 内容宽, 整行)` 写到包裹层 `.personalizationInputWrap` 的 `width`；高度用 `scrollTo`-style 的 `height:auto → scrollHeight` 撑开。空态固定为 1/3 宽（一行高），占位文字用绝对定位的覆盖层（不是 `::placeholder`），这样长文本可以单行省略，完整默认提示词放在下方 hint 里。
+- 思考强度滑杆：`appearance:none` + `::-webkit-slider-runnable-track` 自绘轨道，高 **8px**（原默认约 4px 的两倍）、圆角、`linear-gradient(90deg, #6699FF, #B899FF)`；滑块是 20px 白色圆点。控件本身 `height: 40px` 作为触摸热区，`touch-action: pan-y`。
+
 **存储**（`services/settings.ts`）：
 
 | localStorage 键 | 含义 | 默认 |
@@ -215,6 +220,14 @@ thinking: initial.thinking
   所以 UI 只承诺"挡位"，不承诺"思考 token 数一定变化"；若服务端后续支持，代码无需再改。
 
 **已验证**：mock 捕获的请求体 `system` = 自定义文本、`thinking={type:'enabled',budget_tokens:8192}`（第 5 档）；清空提示词并关闭深度思考后为 `system` = 默认文案、`thinking={type:'disabled'}` 且无 `budget_tokens`。真机浅色/深色主题下占位文字均为灰色、已填文字跟随主题。
+
+**⚠ 顺手修掉的上游行为**（`src/app/viewport.ts`）：`preventPageScroll` 原先对**所有**单指 `touchmove` 无条件 `preventDefault()`（只要祖先里没有可滚动元素），这会把滑杆的触摸拖动一并吞掉——滑杆在手机上完全拖不动。现在开头放行 `input[type="range"]`（以及带 `data-touch-drag` 的元素）：
+
+```ts
+if (target?.closest('input[type="range"], [data-touch-drag]')) return
+```
+
+A/B 实测：加回无条件 `preventDefault` 后滑杆拖不动（值停在起点），移除后正常。真机 `adb shell input swipe` 左→右 2→3、右→左 3→0，取值与 localStorage 同步变化。**以后再加自定义滑杆/可拖动控件，记得别被这段逻辑挡住。**
 
 ---
 

@@ -18,6 +18,25 @@ index d204c0f..f189a3c 100644
        <Toast />
      </>
    )
+diff --git a/src/app/viewport.ts b/src/app/viewport.ts
+index b01e996..1ebcba4 100644
+--- a/src/app/viewport.ts
++++ b/src/app/viewport.ts
+@@ -14,8 +14,13 @@ const preventPageScroll = (event: TouchEvent) => {
+   if (event.touches.length !== 1) {
+     return
+   }
++  const target = event.target instanceof Element ? event.target : null
++  // 滑杆等控件要靠触摸拖动改变取值，preventDefault 会把拖动吞掉
++  if (target?.closest('input[type="range"], [data-touch-drag]')) {
++    return
++  }
+   for (
+-    let element = event.target instanceof Element ? event.target : null;
++    let element = target;
+     element && element !== document.body;
+     element = element.parentElement
+   ) {
 diff --git a/src/components/base/icons.tsx b/src/components/base/icons.tsx
 index 25f10ea..5aa4d60 100644
 --- a/src/components/base/icons.tsx
@@ -100,11 +119,12 @@ index 7a66a71..404b2f3 100644
              tone="primary"
 diff --git a/src/components/settings/PersonalizationPanel.tsx b/src/components/settings/PersonalizationPanel.tsx
 new file mode 100644
-index 0000000..98a3e25
+index 0000000..10c254d
 --- /dev/null
 +++ b/src/components/settings/PersonalizationPanel.tsx
-@@ -0,0 +1,101 @@
+@@ -0,0 +1,154 @@
 +import clsx from 'clsx'
++import { useLayoutEffect, useRef, useState } from 'react'
 +import { useTranslate } from '../../i18n/index.js'
 +import {
 +  DEFAULT_THINKING_LEVEL,
@@ -118,9 +138,12 @@ index 0000000..98a3e25
 +import { showToast } from '../base/toastState.js'
 +import styles from './Settings.module.css'
 +
++/** 文本框最小高度：一行字 */
++const TEXTAREA_MIN_HEIGHT = 40
++
 +/**
 + * 个性化页：设置弹窗内的子页面。
-+ * 第一板块：自定义系统提示词（留空＝用内置默认，占位文字即默认提示词、显示为灰色）；
++ * 第一板块：自定义系统提示词 —— 宽度随文本自适应（初始约 1/3 宽、上限整行），高度随行数增长；
 + * 第二板块：思考强度挡位（映射 thinking.budget_tokens）；
 + * 底部：恢复默认设置。
 + */
@@ -129,6 +152,7 @@ index 0000000..98a3e25
 +  const systemPrompt = useSettings((state) => state.systemPrompt)
 +  const thinkingLevel = useSettings((state) => state.thinkingLevel)
 +  const budget = THINKING_BUDGETS[thinkingLevel] ?? THINKING_BUDGETS[DEFAULT_THINKING_LEVEL]
++  const placeholder = t('personalizationSystemPromptPlaceholder')
 +  const levelLabels = [
 +    t('personalizationLevel1'),
 +    t('personalizationLevel2'),
@@ -136,6 +160,40 @@ index 0000000..98a3e25
 +    t('personalizationLevel4'),
 +    t('personalizationLevel5'),
 +  ]
++
++  const fieldRef = useRef<HTMLDivElement>(null)
++  const wrapRef = useRef<HTMLDivElement>(null)
++  const textareaRef = useRef<HTMLTextAreaElement>(null)
++  const measureRef = useRef<HTMLSpanElement>(null)
++  // 容器宽度变化（窗口缩放、横竖屏）时重新计算文本框尺寸
++  const [fieldWidth, setFieldWidth] = useState(0)
++
++  useLayoutEffect(() => {
++    const field = fieldRef.current
++    if (!field) {
++      return
++    }
++    const observer = new ResizeObserver(() => setFieldWidth(field.clientWidth))
++    observer.observe(field)
++    return () => observer.disconnect()
++  }, [])
++
++  useLayoutEffect(() => {
++    const wrap = wrapRef.current
++    const textarea = textareaRef.current
++    const measure = measureRef.current
++    if (!wrap || !textarea || !measure || fieldWidth === 0) {
++      return
++    }
++    // 用隐藏的镜像测出单行文本宽度：空值时用容器 1/3，有内容时按内容宽度增长到整行
++    measure.textContent = systemPrompt
++    const natural = Math.ceil(measure.getBoundingClientRect().width)
++    const min = Math.round(fieldWidth / 3)
++    const width = systemPrompt ? Math.min(Math.max(natural, min), fieldWidth) : min
++    wrap.style.width = `${width}px`
++    textarea.style.height = 'auto'
++    textarea.style.height = `${Math.max(TEXTAREA_MIN_HEIGHT, textarea.scrollHeight)}px`
++  }, [systemPrompt, fieldWidth])
 +
 +  return (
 +    <div className={styles.personalization}>
@@ -148,15 +206,29 @@ index 0000000..98a3e25
 +
 +      <section className={styles.personalizationSection}>
 +        <div className={styles.personalizationTitle}>{t('personalizationSystemPrompt')}</div>
-+        <textarea
-+          className={styles.personalizationTextarea}
-+          value={systemPrompt}
-+          rows={4}
-+          placeholder={t('personalizationSystemPromptPlaceholder')}
-+          aria-label={t('personalizationSystemPrompt')}
-+          onChange={(event) => setSystemPrompt(event.target.value)}
-+        />
-+        <div className={styles.personalizationHint}>{t('personalizationSystemPromptHint')}</div>
++        <div ref={fieldRef} className={styles.personalizationField}>
++          <div ref={wrapRef} className={styles.personalizationInputWrap}>
++            <textarea
++              ref={textareaRef}
++              className={styles.personalizationTextarea}
++              value={systemPrompt}
++              rows={1}
++              aria-label={t('personalizationSystemPrompt')}
++              onChange={(event) => setSystemPrompt(event.target.value)}
++            />
++            {systemPrompt === '' ? (
++              <div className={styles.personalizationPlaceholder} aria-hidden="true">
++                {placeholder}
++              </div>
++            ) : null}
++          </div>
++          <span ref={measureRef} className={styles.personalizationMeasure} aria-hidden="true" />
++        </div>
++        <div className={styles.personalizationHint}>
++          {systemPrompt
++            ? t('personalizationSystemPromptHint')
++            : t('personalizationSystemPromptDefault', { text: placeholder })}
++        </div>
 +      </section>
 +
 +      <section className={styles.personalizationSection}>
@@ -206,10 +278,10 @@ index 0000000..98a3e25
 +  )
 +}
 diff --git a/src/components/settings/Settings.module.css b/src/components/settings/Settings.module.css
-index f54e437..cee5879 100644
+index f54e437..285f51a 100644
 --- a/src/components/settings/Settings.module.css
 +++ b/src/components/settings/Settings.module.css
-@@ -440,3 +440,161 @@
+@@ -440,3 +440,240 @@
      max-width: 100%;
    }
  }
@@ -301,12 +373,25 @@ index f54e437..cee5879 100644
 +  color: var(--dsw-alias-brand-primary);
 +}
 +
-+/* 系统提示词输入框：正文跟随主题；未填写时显示灰色默认提示词 */
++/* 系统提示词输入：宽度由 JS 按内容自适应（初始 1/3，最多整行），高度随行数增长 */
++.personalizationField {
++  position: relative;
++  width: 100%;
++}
++
++/* 宽度由 JS 写到这层，输入框与灰色占位都跟着它走 */
++.personalizationInputWrap {
++  position: relative;
++  width: 33.33%;
++  max-width: 100%;
++}
++
 +.personalizationTextarea {
 +  box-sizing: border-box;
++  display: block;
 +  width: 100%;
-+  min-height: 96px;
-+  padding: 10px 12px;
++  min-height: 40px;
++  padding: 9px 12px;
 +  border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
 +  border-radius: 10px;
 +  background: transparent;
@@ -314,17 +399,44 @@ index f54e437..cee5879 100644
 +  font-size: 14px;
 +  line-height: 1.6;
 +  font-family: inherit;
-+  resize: vertical;
++  resize: none;
++  overflow: hidden;
 +  outline: none;
 +  -webkit-tap-highlight-color: transparent;
 +}
 +
-+.personalizationTextarea::placeholder {
-+  color: var(--dsw-alias-label-tertiary);
-+}
-+
 +.personalizationTextarea:focus {
 +  border-color: var(--dsw-alias-brand-primary);
++}
++
++/* 空值时的灰色默认提示词：单行、超出省略，完整内容在下方 hint 里给出 */
++.personalizationPlaceholder {
++  position: absolute;
++  top: 0;
++  left: 0;
++  max-width: 100%;
++  padding: 9px 12px;
++  box-sizing: border-box;
++  color: var(--dsw-alias-label-tertiary);
++  font-size: 14px;
++  line-height: 1.6;
++  white-space: nowrap;
++  overflow: hidden;
++  text-overflow: ellipsis;
++  pointer-events: none;
++}
++
++/* 隐藏的镜像元素：用来量单行文本宽度 */
++.personalizationMeasure {
++  position: absolute;
++  top: 0;
++  left: 0;
++  visibility: hidden;
++  white-space: pre;
++  font-size: 14px;
++  line-height: 1.6;
++  font-family: inherit;
++  pointer-events: none;
 +}
 +
 +.personalizationHint {
@@ -333,13 +445,52 @@ index f54e437..cee5879 100644
 +  color: var(--dsw-alias-label-tertiary);
 +}
 +
-+/* 思考强度滑杆 */
++/* 思考强度滑杆：轨道加粗到 8px，并做 #6699FF → #B899FF 的横向渐变 */
 +.personalizationSlider {
++  -webkit-appearance: none;
++  appearance: none;
 +  width: 100%;
-+  height: 24px;
++  height: 40px;
 +  margin: 0;
-+  accent-color: var(--dsw-alias-brand-primary);
++  background: transparent;
 +  cursor: pointer;
++  touch-action: pan-y;
++  -webkit-tap-highlight-color: transparent;
++}
++
++.personalizationSlider::-webkit-slider-runnable-track {
++  height: 8px;
++  border-radius: 4px;
++  background: linear-gradient(90deg, #6699ff 0%, #b899ff 100%);
++}
++
++.personalizationSlider::-webkit-slider-thumb {
++  -webkit-appearance: none;
++  appearance: none;
++  box-sizing: border-box;
++  width: 20px;
++  height: 20px;
++  margin-top: -6px;
++  border: 0;
++  border-radius: 50%;
++  background: #fff;
++  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
++}
++
++.personalizationSlider::-moz-range-track {
++  height: 8px;
++  border-radius: 4px;
++  background: linear-gradient(90deg, #6699ff 0%, #b899ff 100%);
++}
++
++.personalizationSlider::-moz-range-thumb {
++  box-sizing: border-box;
++  width: 20px;
++  height: 20px;
++  border: 0;
++  border-radius: 50%;
++  background: #fff;
++  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
 +}
 +
 +.personalizationTicks {
@@ -372,10 +523,10 @@ index f54e437..cee5879 100644
 +  background: var(--dsw-alias-interactive-bg-hover);
 +}
 diff --git a/src/components/settings/Settings.module.css.d.ts b/src/components/settings/Settings.module.css.d.ts
-index 860646a..5dc619e 100644
+index 860646a..d96a8dd 100644
 --- a/src/components/settings/Settings.module.css.d.ts
 +++ b/src/components/settings/Settings.module.css.d.ts
-@@ -33,6 +33,24 @@ declare const styles: {
+@@ -33,6 +33,28 @@ declare const styles: {
    readonly "importConfirmText": string;
    readonly "deleteConfirm": string;
    readonly "deleteActions": string;
@@ -396,6 +547,10 @@ index 860646a..5dc619e 100644
 +  readonly "personalizationTickActive": string;
 +  readonly "personalizationReset": string;
 +  readonly "personalizationArrow": string;
++  readonly "personalizationField": string;
++  readonly "personalizationPlaceholder": string;
++  readonly "personalizationMeasure": string;
++  readonly "personalizationInputWrap": string;
  };
  export = styles;
  
@@ -963,7 +1118,7 @@ index 0000000..c3b4cc5
 +
 +export const closeSessionSearch = () => useSessionSearch.setState({ open: false })
 diff --git a/src/i18n/en.ts b/src/i18n/en.ts
-index 2d49027..8dc82f4 100644
+index 2d49027..6efc7a1 100644
 --- a/src/i18n/en.ts
 +++ b/src/i18n/en.ts
 @@ -6,6 +6,16 @@ export const en = {
@@ -983,7 +1138,7 @@ index 2d49027..8dc82f4 100644
    untitledChat: 'New chat',
    sessionLoading: 'Loading chats...',
    sessionListLoadFailed: 'Unable to load the chat list. Please try again.',
-@@ -97,6 +107,21 @@ export const en = {
+@@ -97,6 +107,22 @@ export const en = {
    settingsLocationProvince: 'Select province/region',
    settingsLocationCity: 'Select city',
    settingsLocationRegion: 'Select country or region',
@@ -993,6 +1148,7 @@ index 2d49027..8dc82f4 100644
 +  personalizationSystemPrompt: 'System prompt',
 +  personalizationSystemPromptPlaceholder: 'This assistant is DeepSeek, created by DeepSeek.',
 +  personalizationSystemPromptHint: 'Leave empty to use the default prompt; otherwise every conversation starts with your text.',
++  personalizationSystemPromptDefault: 'Default prompt: {text}',
 +  personalizationThinking: 'Thinking intensity',
 +  personalizationThinkingHint: 'Only applies when Deep thinking is enabled. 5 levels.',
 +  personalizationLevel1: 'Minimal',
@@ -1005,7 +1161,7 @@ index 2d49027..8dc82f4 100644
    settingDialogAsideGeneralOptionLabel: 'General',
    settingDialogAsideDataOptionLabel: 'Data',
    avatarMenuSettingsDialogThemeItemLabel: 'Theme',
-@@ -144,6 +169,7 @@ export const en = {
+@@ -144,6 +170,7 @@ export const en = {
    deactivatedSearchTooltip: 'Search the web when necessary',
    search: 'Search',
    uploadFile: 'Upload files',
@@ -1014,7 +1170,7 @@ index 2d49027..8dc82f4 100644
    uploadMaxMBSize: 'File exceeds the size limit ({size} MB). Please adjust and try again.',
    uploadMaxFiles: 'You can upload up to {count} files',
 diff --git a/src/i18n/zh.ts b/src/i18n/zh.ts
-index d99f058..b7fe259 100644
+index d99f058..92da5dc 100644
 --- a/src/i18n/zh.ts
 +++ b/src/i18n/zh.ts
 @@ -4,6 +4,15 @@ export const zh = {
@@ -1033,7 +1189,7 @@ index d99f058..b7fe259 100644
    untitledChat: '新对话',
    sessionLoading: '正在加载对话...',
    sessionListLoadFailed: '对话列表加载失败，请重试',
-@@ -92,6 +101,21 @@ export const zh = {
+@@ -92,6 +101,22 @@ export const zh = {
    settingsLocationProvince: '请选择省份/地区',
    settingsLocationCity: '请选择市',
    settingsLocationRegion: '请选择国家或地区',
@@ -1043,6 +1199,7 @@ index d99f058..b7fe259 100644
 +  personalizationSystemPrompt: '系统提示词',
 +  personalizationSystemPromptPlaceholder: '该助手为DeepSeek，由深度求索公司创造。',
 +  personalizationSystemPromptHint: '留空则使用默认提示词；填写后每次对话都会以此开头。',
++  personalizationSystemPromptDefault: '默认提示词：{text}',
 +  personalizationThinking: '思考强度',
 +  personalizationThinkingHint: '仅在开启「深度思考」时生效，共 5 档。',
 +  personalizationLevel1: '最低',
@@ -1055,7 +1212,7 @@ index d99f058..b7fe259 100644
    settingDialogAsideGeneralOptionLabel: '通用设置',
    settingDialogAsideDataOptionLabel: '数据管理',
    avatarMenuSettingsDialogThemeItemLabel: '主题',
-@@ -136,6 +160,7 @@ export const zh = {
+@@ -136,6 +161,7 @@ export const zh = {
    deactivatedSearchTooltip: '按需搜索网页',
    search: '智能搜索',
    uploadFile: '上传文件',
