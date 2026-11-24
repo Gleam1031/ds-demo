@@ -149,7 +149,7 @@ messages: Too many documents: max 20 document blocks per request, got 27
 | **附件省略提示** | `reply.ts` 的 `pruneDocumentBlocks` 返回被省略数量，`toRequestMessages` 触发 `showToast({ key: 'documentBlocksOmitted', params })`（复用 chat-demo 自带 Toast）。文案键 zh/en 都加 |
 | **聊天记录搜索** | 侧边栏「开启新对话」上方按钮（`styles.searchSessions`，与 newChat 同为 40px 高、100% 宽）；弹窗 `SessionSearch.tsx` + 状态 `sessionSearchState.ts`；查询走 `services/chat/search.ts`：直接读 IndexedDB 的 `sessions`（`db.ts` 新导出 `loadAllSessions`），匹配标题与消息正文（用户正文 + 回答文本块），片段带 `…` 截断，180ms 防抖 |
 | **对话置顶** | `services/chat/pins.ts`：置顶 id 存 `localStorage['chat-demo:pinned-sessions']`；`splitPinned()` 把置顶项提到最前，`Sider` 渲染「置顶」分区；`SessionItem` 菜单加「置顶/取消置顶」并显示图钉；**触屏支持长按标题**（450ms，位移 >12px 才取消，避免轻微抖动导致失效），长按后抬起不再切换会话 |
-| **个性化入口（占位）** | 设置 → 通用设置 → 位置信息下方一行「个性化」，描述「自定义对话风格与语气（即将支持）」，右侧箭头点击只弹 toast；**功能未接入**，后续在此扩展 |
+| **个性化页** | 设置 → 通用设置 → 位置信息下方「个性化」进入**弹窗内子页面**（`PersonalizationPanel.tsx`，`SettingsDialog` 用 `personalizationOpen` 切换，返回即回到原分组）。三项：①系统提示词（占位＝默认提示词，灰色；有值用主题色）；②思考强度 5 档滑杆；③恢复默认设置。存储见下节 |
 | **拍照上传** | `ChatInput` 工具栏在语音与附件之间新增相机按钮 + 隐藏的 `<input type="file" accept="image/*" capture="environment">`；照片经现有 `acceptFiles()` 走同一上传/预览链路。**不要给 App 声明 CAMERA 权限**——Capacitor 只在"未声明"该权限时才直接走 `ACTION_IMAGE_CAPTURE`，声明了反而要运行时授权（见 `BridgeWebChromeClient.isMediaCaptureSupported()`） |
 
 > 搜索弹窗挂在 `App.tsx` 根部，不随侧边栏抽屉关闭而卸载。
@@ -183,6 +183,38 @@ messages: Too many documents: max 20 document blocks per request, got 27
 - 层级 2000，高于 chat-demo 弹窗（1000+）、关于页（999）、引导页（1100）。
 
 **已验证**（真机 CDP 注入 blob 实测）：图片打开后 `location.href` 仍是 `https://localhost/`、点击图片即关闭；文本 blob 显示说明卡片、点「返回聊天」关闭；两种情况 App 都没有被导航走。
+
+### 5.8 个性化：系统提示词与思考强度
+
+**存储**（`services/settings.ts`）：
+
+| localStorage 键 | 含义 | 默认 |
+|---|---|---|
+| `chat-demo:system-prompt` | 自定义系统提示词；空字符串＝用内置默认 | 未设置 |
+| `chat-demo:thinking-level` | 思考强度挡位 0..4，对应 `THINKING_BUDGETS` | `2`（标准） |
+
+`THINKING_BUDGETS = [1024, 2048, 4096, 6144, 8192]`，上限 8192 是为了不超过默认 `max_tokens`。
+`resetPersonalization()` 同时清掉两个键并回到默认挡位。
+
+**请求侧**（`services/chat/store.ts`，构造 `streamMessage` 请求体处）：
+
+```ts
+const system = settings.systemPrompt.trim() || SYSTEM_PROMPT
+thinking: initial.thinking
+  ? { type: 'enabled', budget_tokens: THINKING_BUDGETS[settings.thinkingLevel] }
+  : { type: 'disabled' }
+```
+
+- `SYSTEM_PROMPT` 仍是 `'该助手为DeepSeek，由深度求索公司创造。'`，只在用户留空时使用；
+- 思考强度只在「深度思考」开启时发送 `budget_tokens`，关闭时请求体里不带该字段。
+
+**接口事实**（2026-11 实测，用真实 Key 直接打 `/anthropic/v1/messages`）：
+
+- 带 `thinking.budget_tokens` 的请求返回 **200**，服务端接受该字段；
+- 但有资料指出 DeepSeek 会**忽略** `budget_tokens`（[litellm#35645](https://github.com/BerriAI/litellm/issues/35645)、[bifrost 提交](https://github.com/maximhq/bifrost/commit/57146530b391ef12cc06c00dc01bc7c41f8438a5)），即目前可能只有"开/关"生效。
+  所以 UI 只承诺"挡位"，不承诺"思考 token 数一定变化"；若服务端后续支持，代码无需再改。
+
+**已验证**：mock 捕获的请求体 `system` = 自定义文本、`thinking={type:'enabled',budget_tokens:8192}`（第 5 档）；清空提示词并关闭深度思考后为 `system` = 默认文案、`thinking={type:'disabled'}` 且无 `budget_tokens`。真机浅色/深色主题下占位文字均为灰色、已填文字跟随主题。
 
 ---
 

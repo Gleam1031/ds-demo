@@ -98,50 +98,310 @@ index 7a66a71..404b2f3 100644
            <IconButton
              size="m"
              tone="primary"
+diff --git a/src/components/settings/PersonalizationPanel.tsx b/src/components/settings/PersonalizationPanel.tsx
+new file mode 100644
+index 0000000..98a3e25
+--- /dev/null
++++ b/src/components/settings/PersonalizationPanel.tsx
+@@ -0,0 +1,101 @@
++import clsx from 'clsx'
++import { useTranslate } from '../../i18n/index.js'
++import {
++  DEFAULT_THINKING_LEVEL,
++  resetPersonalization,
++  setSystemPrompt,
++  setThinkingLevel,
++  THINKING_BUDGETS,
++  useSettings,
++} from '../../services/settings.js'
++import { IconChevronRightOutline14 } from '../base/icons.js'
++import { showToast } from '../base/toastState.js'
++import styles from './Settings.module.css'
++
++/**
++ * 个性化页：设置弹窗内的子页面。
++ * 第一板块：自定义系统提示词（留空＝用内置默认，占位文字即默认提示词、显示为灰色）；
++ * 第二板块：思考强度挡位（映射 thinking.budget_tokens）；
++ * 底部：恢复默认设置。
++ */
++export const PersonalizationPanel = ({ onBack }: { onBack: () => void }) => {
++  const t = useTranslate()
++  const systemPrompt = useSettings((state) => state.systemPrompt)
++  const thinkingLevel = useSettings((state) => state.thinkingLevel)
++  const budget = THINKING_BUDGETS[thinkingLevel] ?? THINKING_BUDGETS[DEFAULT_THINKING_LEVEL]
++  const levelLabels = [
++    t('personalizationLevel1'),
++    t('personalizationLevel2'),
++    t('personalizationLevel3'),
++    t('personalizationLevel4'),
++    t('personalizationLevel5'),
++  ]
++
++  return (
++    <div className={styles.personalization}>
++      <button type="button" className={styles.personalizationBack} onClick={onBack}>
++        <span className={styles.personalizationBackIcon} aria-hidden="true">
++          <IconChevronRightOutline14 />
++        </span>
++        {t('personalizationBack')}
++      </button>
++
++      <section className={styles.personalizationSection}>
++        <div className={styles.personalizationTitle}>{t('personalizationSystemPrompt')}</div>
++        <textarea
++          className={styles.personalizationTextarea}
++          value={systemPrompt}
++          rows={4}
++          placeholder={t('personalizationSystemPromptPlaceholder')}
++          aria-label={t('personalizationSystemPrompt')}
++          onChange={(event) => setSystemPrompt(event.target.value)}
++        />
++        <div className={styles.personalizationHint}>{t('personalizationSystemPromptHint')}</div>
++      </section>
++
++      <section className={styles.personalizationSection}>
++        <div className={styles.personalizationTitleRow}>
++          <div className={styles.personalizationTitle}>{t('personalizationThinking')}</div>
++          <div className={styles.personalizationValue}>
++            {levelLabels[thinkingLevel]} · {budget}
++          </div>
++        </div>
++        <input
++          type="range"
++          className={styles.personalizationSlider}
++          min={0}
++          max={THINKING_BUDGETS.length - 1}
++          step={1}
++          value={thinkingLevel}
++          aria-label={t('personalizationThinking')}
++          onChange={(event) => setThinkingLevel(Number(event.target.value))}
++        />
++        <div className={styles.personalizationTicks}>
++          {levelLabels.map((label, index) => (
++            <span
++              key={label}
++              className={clsx(
++                styles.personalizationTick,
++                index === thinkingLevel && styles.personalizationTickActive
++              )}
++            >
++              {label}
++            </span>
++          ))}
++        </div>
++        <div className={styles.personalizationHint}>{t('personalizationThinkingHint')}</div>
++      </section>
++
++      <button
++        type="button"
++        className={styles.personalizationReset}
++        onClick={() => {
++          resetPersonalization()
++          showToast({ key: 'personalizationResetDone' })
++        }}
++      >
++        {t('personalizationReset')}
++      </button>
++    </div>
++  )
++}
 diff --git a/src/components/settings/Settings.module.css b/src/components/settings/Settings.module.css
-index f54e437..b5c6fc1 100644
+index f54e437..cee5879 100644
 --- a/src/components/settings/Settings.module.css
 +++ b/src/components/settings/Settings.module.css
-@@ -440,3 +440,23 @@
+@@ -440,3 +440,161 @@
      max-width: 100%;
    }
  }
 +
-+/* 个性化入口：右侧只有一个箭头，具体设置后续接入 */
++/* 个性化入口：整行可点，进入个性化子页面 */
 +.personalizationEntry {
 +  display: flex;
 +  align-items: center;
-+  justify-content: center;
-+  width: 28px;
-+  height: 28px;
-+  padding: 0;
++  gap: 8px;
++  box-sizing: border-box;
++  width: 100%;
++  min-height: 60px;
++  padding: 12px 0;
 +  border: 0;
-+  border-radius: 50%;
 +  background: transparent;
-+  color: var(--dsw-alias-label-tertiary);
++  color: var(--dsw-alias-label-primary);
++  text-align: left;
 +  cursor: pointer;
 +  -webkit-tap-highlight-color: transparent;
++  box-shadow: inset 0 1px 0 0 var(--dsw-alias-border-l2-darkmode-thin);
 +}
 +
 +.personalizationEntry:active {
 +  background: var(--dsw-alias-interactive-bg-hover);
 +}
++
++.personalizationArrow {
++  display: flex;
++  flex-shrink: 0;
++  color: var(--dsw-alias-label-tertiary);
++}
++
++/* ---------- 个性化子页面 ---------- */
++
++.personalization {
++  display: flex;
++  flex-direction: column;
++  gap: 20px;
++  padding-bottom: 8px;
++}
++
++.personalizationBack {
++  display: flex;
++  align-items: center;
++  gap: 4px;
++  align-self: flex-start;
++  padding: 4px 8px 4px 4px;
++  margin-left: -4px;
++  border: 0;
++  border-radius: 8px;
++  background: transparent;
++  color: var(--dsw-alias-label-tertiary);
++  font-size: 13.5px;
++  cursor: pointer;
++  -webkit-tap-highlight-color: transparent;
++}
++
++.personalizationBack:active {
++  background: var(--dsw-alias-interactive-bg-hover);
++}
++
++.personalizationBackIcon {
++  display: flex;
++  transform: rotate(180deg);
++}
++
++.personalizationSection {
++  display: flex;
++  flex-direction: column;
++  gap: 10px;
++}
++
++.personalizationTitle {
++  font-size: 14px;
++  line-height: 22px;
++  color: var(--dsw-alias-label-primary);
++  font-weight: 500;
++}
++
++.personalizationTitleRow {
++  display: flex;
++  align-items: baseline;
++  justify-content: space-between;
++  gap: 8px;
++}
++
++.personalizationValue {
++  font-size: 13px;
++  color: var(--dsw-alias-brand-primary);
++}
++
++/* 系统提示词输入框：正文跟随主题；未填写时显示灰色默认提示词 */
++.personalizationTextarea {
++  box-sizing: border-box;
++  width: 100%;
++  min-height: 96px;
++  padding: 10px 12px;
++  border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
++  border-radius: 10px;
++  background: transparent;
++  color: var(--dsw-alias-label-primary);
++  font-size: 14px;
++  line-height: 1.6;
++  font-family: inherit;
++  resize: vertical;
++  outline: none;
++  -webkit-tap-highlight-color: transparent;
++}
++
++.personalizationTextarea::placeholder {
++  color: var(--dsw-alias-label-tertiary);
++}
++
++.personalizationTextarea:focus {
++  border-color: var(--dsw-alias-brand-primary);
++}
++
++.personalizationHint {
++  font-size: 12.5px;
++  line-height: 1.5;
++  color: var(--dsw-alias-label-tertiary);
++}
++
++/* 思考强度滑杆 */
++.personalizationSlider {
++  width: 100%;
++  height: 24px;
++  margin: 0;
++  accent-color: var(--dsw-alias-brand-primary);
++  cursor: pointer;
++}
++
++.personalizationTicks {
++  display: flex;
++  justify-content: space-between;
++  font-size: 12px;
++  color: var(--dsw-alias-label-tertiary);
++}
++
++.personalizationTickActive {
++  color: var(--dsw-alias-brand-primary);
++  font-weight: 500;
++}
++
++.personalizationReset {
++  align-self: flex-start;
++  min-width: 132px;
++  height: 36px;
++  padding: 0 16px;
++  border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
++  border-radius: 18px;
++  background: transparent;
++  color: var(--dsw-alias-label-primary);
++  font-size: 13.5px;
++  cursor: pointer;
++  -webkit-tap-highlight-color: transparent;
++}
++
++.personalizationReset:active {
++  background: var(--dsw-alias-interactive-bg-hover);
++}
 diff --git a/src/components/settings/Settings.module.css.d.ts b/src/components/settings/Settings.module.css.d.ts
-index 860646a..76cb500 100644
+index 860646a..5dc619e 100644
 --- a/src/components/settings/Settings.module.css.d.ts
 +++ b/src/components/settings/Settings.module.css.d.ts
-@@ -33,6 +33,9 @@ declare const styles: {
+@@ -33,6 +33,24 @@ declare const styles: {
    readonly "importConfirmText": string;
    readonly "deleteConfirm": string;
    readonly "deleteActions": string;
 +
 +  readonly "personalizationEntry": string;
++  readonly "personalization": string;
++  readonly "personalizationBack": string;
++  readonly "personalizationBackIcon": string;
++  readonly "personalizationSection": string;
++  readonly "personalizationTitle": string;
++  readonly "personalizationTitleRow": string;
++  readonly "personalizationValue": string;
++  readonly "personalizationTextarea": string;
++  readonly "personalizationHint": string;
++  readonly "personalizationSlider": string;
++  readonly "personalizationTicks": string;
++  readonly "personalizationTick": string;
++  readonly "personalizationTickActive": string;
++  readonly "personalizationReset": string;
++  readonly "personalizationArrow": string;
  };
  export = styles;
  
 +
 diff --git a/src/components/settings/SettingsDialog.tsx b/src/components/settings/SettingsDialog.tsx
-index a74b591..a562807 100644
+index a74b591..7ac4731 100644
 --- a/src/components/settings/SettingsDialog.tsx
 +++ b/src/components/settings/SettingsDialog.tsx
 @@ -1,6 +1,7 @@
@@ -152,37 +412,79 @@ index a74b591..a562807 100644
    IconDarkOutline16,
    IconDataOutline16,
    IconDownloadOutline16,
-@@ -100,6 +101,7 @@ const SettingsContent = () => {
+@@ -32,6 +33,7 @@ import { Button } from '../base/Button.js'
+ import { Modal } from '../base/Modal.js'
+ import { Select } from '../base/Select.js'
+ import { showToast } from '../base/toastState.js'
++import { PersonalizationPanel } from './PersonalizationPanel.js'
+ import { ApiKeyConfirm, ApiKeyField, useApiKeyEditor } from './ApiKeyField.js'
+ import { closeSettings, useSettingsDialog, type SettingsSection } from './settingsDialogState.js'
+ import styles from './Settings.module.css'
+@@ -65,19 +67,29 @@ const SettingsContent = () => {
+   const historyDelete = useHistoryDelete()
+   const replacingHistory = useChatStore((state) => state.importingHistory)
+   const historyBusy = historyImport.busy || historyDelete.busy || replacingHistory
++  // 个性化是弹窗里的子页面，返回后回到原来的分组
++  const [personalizationOpen, setPersonalizationOpen] = useState(false)
+   return (
+     <>
+       <Modal
+-        title={t('settings')}
++        title={personalizationOpen ? t('settingsPersonalization') : t('settings')}
+         closable
+         className={styles.dialog}
+         mainClassName={styles.dialogMain}
+         onClose={() => {
++          if (personalizationOpen) {
++            setPersonalizationOpen(false)
++            return
++          }
+           if (!historyDelete.busy) {
+             closeSettings()
+           }
+         }}
+       >
++        {personalizationOpen ? (
++          <PersonalizationPanel onBack={() => setPersonalizationOpen(false)} />
++        ) : (
++          <>
+         <div role="tablist" className={styles.navigation}>
+           {sections.map((item) => (
+             <button
+@@ -100,6 +112,7 @@ const SettingsContent = () => {
                <LocaleSetting />
                <TtsVoiceSetting />
                <LocationSetting />
-+              <PersonalizationSetting />
++              <PersonalizationSetting onOpen={() => setPersonalizationOpen(true)} />
              </>
            ) : (
              <>
-@@ -269,6 +271,28 @@ const LocationSetting = () => {
+@@ -125,6 +138,8 @@ const SettingsContent = () => {
+             </>
+           )}
+         </div>
++          </>
++        )}
+       </Modal>
+       {historyImport.file ? <ImportConfirm historyImport={historyImport} /> : null}
+       {historyDelete.opened ? <DeleteAllConfirm historyDelete={historyDelete} /> : null}
+@@ -269,6 +284,22 @@ const LocationSetting = () => {
    )
  }
  
-+/** 个性化：先放一个占位入口，具体设置项后续接入 */
-+const PersonalizationSetting = () => {
++/** 个性化入口：整行可点，进入子页面（系统提示词 + 思考强度 + 恢复默认） */
++const PersonalizationSetting = ({ onOpen }: { onOpen: () => void }) => {
 +  const t = useTranslate()
 +  return (
-+    <SettingCell
-+      label={t('settingsPersonalization')}
-+      description={t('settingsPersonalizationHint')}
-+      status={null}
-+      action={
-+        <button
-+          type="button"
-+          className={styles.personalizationEntry}
-+          aria-label={t('settingsPersonalization')}
-+          onClick={() => showToast({ key: 'settingsPersonalizationToast' })}
-+        >
-+          <IconChevronRightOutline14 />
-+        </button>
-+      }
-+    />
++    <button type="button" className={styles.personalizationEntry} onClick={onOpen}>
++      <div className={styles.text}>
++        <div className={styles.label}>{t('settingsPersonalization')}</div>
++        <div className={styles.description}>{t('settingsPersonalizationHint')}</div>
++      </div>
++      <span className={styles.personalizationArrow} aria-hidden="true">
++        <IconChevronRightOutline14 />
++      </span>
++    </button>
 +  )
 +}
 +
@@ -661,7 +963,7 @@ index 0000000..c3b4cc5
 +
 +export const closeSessionSearch = () => useSessionSearch.setState({ open: false })
 diff --git a/src/i18n/en.ts b/src/i18n/en.ts
-index 2d49027..8ea2786 100644
+index 2d49027..8dc82f4 100644
 --- a/src/i18n/en.ts
 +++ b/src/i18n/en.ts
 @@ -6,6 +6,16 @@ export const en = {
@@ -681,17 +983,29 @@ index 2d49027..8ea2786 100644
    untitledChat: 'New chat',
    sessionLoading: 'Loading chats...',
    sessionListLoadFailed: 'Unable to load the chat list. Please try again.',
-@@ -97,6 +107,9 @@ export const en = {
+@@ -97,6 +107,21 @@ export const en = {
    settingsLocationProvince: 'Select province/region',
    settingsLocationCity: 'Select city',
    settingsLocationRegion: 'Select country or region',
 +  settingsPersonalization: 'Personalization',
-+  settingsPersonalizationHint: 'Customize chat style and tone (coming soon)',
-+  settingsPersonalizationToast: 'Personalization settings are coming soon',
++  settingsPersonalizationHint: 'Customize the system prompt and thinking intensity',
++  personalizationBack: 'Back',
++  personalizationSystemPrompt: 'System prompt',
++  personalizationSystemPromptPlaceholder: 'This assistant is DeepSeek, created by DeepSeek.',
++  personalizationSystemPromptHint: 'Leave empty to use the default prompt; otherwise every conversation starts with your text.',
++  personalizationThinking: 'Thinking intensity',
++  personalizationThinkingHint: 'Only applies when Deep thinking is enabled. 5 levels.',
++  personalizationLevel1: 'Minimal',
++  personalizationLevel2: 'Low',
++  personalizationLevel3: 'Standard',
++  personalizationLevel4: 'High',
++  personalizationLevel5: 'Max',
++  personalizationReset: 'Restore defaults',
++  personalizationResetDone: 'Defaults restored',
    settingDialogAsideGeneralOptionLabel: 'General',
    settingDialogAsideDataOptionLabel: 'Data',
    avatarMenuSettingsDialogThemeItemLabel: 'Theme',
-@@ -144,6 +157,7 @@ export const en = {
+@@ -144,6 +169,7 @@ export const en = {
    deactivatedSearchTooltip: 'Search the web when necessary',
    search: 'Search',
    uploadFile: 'Upload files',
@@ -700,7 +1014,7 @@ index 2d49027..8ea2786 100644
    uploadMaxMBSize: 'File exceeds the size limit ({size} MB). Please adjust and try again.',
    uploadMaxFiles: 'You can upload up to {count} files',
 diff --git a/src/i18n/zh.ts b/src/i18n/zh.ts
-index d99f058..fcc7ed2 100644
+index d99f058..b7fe259 100644
 --- a/src/i18n/zh.ts
 +++ b/src/i18n/zh.ts
 @@ -4,6 +4,15 @@ export const zh = {
@@ -719,17 +1033,29 @@ index d99f058..fcc7ed2 100644
    untitledChat: '新对话',
    sessionLoading: '正在加载对话...',
    sessionListLoadFailed: '对话列表加载失败，请重试',
-@@ -92,6 +101,9 @@ export const zh = {
+@@ -92,6 +101,21 @@ export const zh = {
    settingsLocationProvince: '请选择省份/地区',
    settingsLocationCity: '请选择市',
    settingsLocationRegion: '请选择国家或地区',
 +  settingsPersonalization: '个性化',
-+  settingsPersonalizationHint: '自定义对话风格与语气（即将支持）',
-+  settingsPersonalizationToast: '个性化设置即将上线，敬请期待',
++  settingsPersonalizationHint: '自定义系统提示词与思考强度',
++  personalizationBack: '返回',
++  personalizationSystemPrompt: '系统提示词',
++  personalizationSystemPromptPlaceholder: '该助手为DeepSeek，由深度求索公司创造。',
++  personalizationSystemPromptHint: '留空则使用默认提示词；填写后每次对话都会以此开头。',
++  personalizationThinking: '思考强度',
++  personalizationThinkingHint: '仅在开启「深度思考」时生效，共 5 档。',
++  personalizationLevel1: '最低',
++  personalizationLevel2: '较低',
++  personalizationLevel3: '标准',
++  personalizationLevel4: '较高',
++  personalizationLevel5: '最高',
++  personalizationReset: '恢复默认设置',
++  personalizationResetDone: '已恢复默认设置',
    settingDialogAsideGeneralOptionLabel: '通用设置',
    settingDialogAsideDataOptionLabel: '数据管理',
    avatarMenuSettingsDialogThemeItemLabel: '主题',
-@@ -136,6 +148,7 @@ export const zh = {
+@@ -136,6 +160,7 @@ export const zh = {
    deactivatedSearchTooltip: '按需搜索网页',
    search: '智能搜索',
    uploadFile: '上传文件',
@@ -737,6 +1063,20 @@ index d99f058..fcc7ed2 100644
    chatInputStopButtonTooltip: '停止生成',
    uploadMaxMBSize: '单个文件大小超过限制（{size}MB），请调整后重试',
    uploadMaxFiles: '上传文件最多支持 {count} 个',
+diff --git a/src/services/api/types.ts b/src/services/api/types.ts
+index 57345b0..9e19088 100644
+--- a/src/services/api/types.ts
++++ b/src/services/api/types.ts
+@@ -176,7 +176,8 @@ export type CreateMessageRequest = {
+   model: ChatModel
+   system: string
+   messages: MessageParam[]
+-  thinking: { type: 'enabled' | 'disabled' }
++  /** budget_tokens 是思考强度挡位；服务端接受该字段（实测 200），是否精细生效由服务端决定 */
++  thinking: { type: 'enabled' | 'disabled'; budget_tokens?: number }
+   tools: (DeepseekWebSearchTool | DeepseekReadUrlTool)[]
+   safety_check: { level: 'high' }
+   title?: { enabled: boolean }
 diff --git a/src/services/chat/db.ts b/src/services/chat/db.ts
 index a1f58ea..eecdef8 100644
 --- a/src/services/chat/db.ts
@@ -1013,4 +1353,134 @@ index 0000000..23a6b8f
 +  }
 +
 +  return hits.sort((a, b) => b.session.updatedAt - a.session.updatedAt).slice(0, limit)
++}
+diff --git a/src/services/chat/store.ts b/src/services/chat/store.ts
+index 32e74a5..861a6f1 100644
+--- a/src/services/chat/store.ts
++++ b/src/services/chat/store.ts
+@@ -4,7 +4,7 @@ import { ApiError, streamMessage } from '../api/client.js'
+ import type { ChatModel, CreateMessageRequest } from '../api/types.js'
+ import { extractFileIds, getFileErrorCode, isRetryableApiError } from '../api/errors.js'
+ import { cancelUpload, describeUploadError, uploadAttachment, useUploads } from '../attachments.js'
+-import { useSettings } from '../settings.js'
++import { DEFAULT_THINKING_LEVEL, THINKING_BUDGETS, useSettings } from '../settings.js'
+ import { appendBranch, getVisibleMessages, normalizeSession, selectVersion } from './branches.js'
+ import * as db from './db.js'
+ import {
+@@ -996,13 +996,20 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
+           initial.thinking ?? false,
+           latestReminder
+         )
++        const settings = useSettings.getState()
++        // 个性化：自定义系统提示词留空时沿用内置默认；思考强度映射到 budget_tokens
++        const system = settings.systemPrompt.trim() || SYSTEM_PROMPT
++        const budget =
++          THINKING_BUDGETS[settings.thinkingLevel] ?? THINKING_BUDGETS[DEFAULT_THINKING_LEVEL]
+         const events = streamMessage(
+-          useSettings.getState().apiKey ?? '',
++          settings.apiKey ?? '',
+           {
+             model: initial.model ?? MODEL,
+-            system: SYSTEM_PROMPT,
++            system,
+             messages,
+-            thinking: { type: initial.thinking ? 'enabled' : 'disabled' },
++            thinking: initial.thinking
++              ? { type: 'enabled', budget_tokens: budget }
++              : { type: 'disabled' },
+             safety_check: SAFETY_CHECK,
+             tools: serverTools(initial.search ?? false),
+             ...(titleRequests.has(controller) ? { title: { enabled: true } } : {}),
+diff --git a/src/services/settings.ts b/src/services/settings.ts
+index 078543b..7250311 100644
+--- a/src/services/settings.ts
++++ b/src/services/settings.ts
+@@ -7,7 +7,7 @@ export type Locale = 'zh-CN' | 'en-US'
+ /** 主题偏好；默认跟随系统 */
+ export type ThemePreference = 'light' | 'dark' | 'system'
+ 
+-/** 本机设置，存 localStorage：API Key、语言、主题、位置、朗读音色、深度思考与智能搜索开关、侧边栏收起状态 */
++/** 本机设置，存 localStorage：API Key、语言、主题、位置、朗读音色、深度思考与智能搜索开关、侧边栏收起状态、个性化 */
+ type Settings = {
+   apiKey: string | null
+   locale: Locale
+@@ -17,6 +17,10 @@ type Settings = {
+   thinking: boolean
+   search: boolean
+   siderCollapsed: boolean
++  /** 自定义系统提示词；留空表示使用内置默认提示词 */
++  systemPrompt: string
++  /** 思考强度挡位，取值 0..4，对应 THINKING_BUDGETS 下标 */
++  thinkingLevel: number
+ }
+ 
+ const KEYS = {
+@@ -28,8 +32,20 @@ const KEYS = {
+   thinking: 'chat-demo:thinking',
+   search: 'chat-demo:search',
+   siderCollapsed: 'chat-demo:sider-collapsed',
++  systemPrompt: 'chat-demo:system-prompt',
++  thinkingLevel: 'chat-demo:thinking-level',
+ } as const
+ 
++/**
++ * 思考强度挡位对应的 thinking.budget_tokens。
++ * 服务端目前接受该字段（实测 200），是否精细生效由服务端决定；这里保留映射以便后续生效。
++ * 上限取 8192，避免超过默认 max_tokens 触发参数校验。
++ */
++export const THINKING_BUDGETS = [1024, 2048, 4096, 6144, 8192] as const
++
++/** 思考强度默认挡位：2（标准） */
++export const DEFAULT_THINKING_LEVEL = 2
++
+ const read = (key: string) => {
+   try {
+     return localStorage.getItem(key)
+@@ -87,6 +103,13 @@ const initialThemePreference = (): ThemePreference => {
+ /** 未保存过时使用服务端默认音色 stella（海星） */
+ const initialTtsVoice = (): TtsVoice => (read(KEYS.ttsVoice) === 'tide' ? 'tide' : 'stella')
+ 
++const initialThinkingLevel = (): number => {
++  const saved = Number.parseInt(read(KEYS.thinkingLevel) ?? '', 10)
++  return Number.isInteger(saved) && saved >= 0 && saved < THINKING_BUDGETS.length
++    ? saved
++    : DEFAULT_THINKING_LEVEL
++}
++
+ export const useSettings = create<Settings>(() => ({
+   apiKey: read(KEYS.apiKey),
+   locale: initialLocale(),
+@@ -96,6 +119,8 @@ export const useSettings = create<Settings>(() => ({
+   thinking: read(KEYS.thinking) === 'true',
+   search: read(KEYS.search) === 'true',
+   siderCollapsed: read(KEYS.siderCollapsed) === 'true',
++  systemPrompt: read(KEYS.systemPrompt) ?? '',
++  thinkingLevel: initialThinkingLevel(),
+ }))
+ 
+ export const setLocale = (locale: Locale) => {
+@@ -138,3 +163,24 @@ export const setSiderCollapsed = (siderCollapsed: boolean) => {
+   write(KEYS.siderCollapsed, String(siderCollapsed))
+   useSettings.setState({ siderCollapsed })
+ }
++
++export const setSystemPrompt = (systemPrompt: string) => {
++  write(KEYS.systemPrompt, systemPrompt.trim() ? systemPrompt : null)
++  useSettings.setState({ systemPrompt })
++}
++
++export const setThinkingLevel = (level: number) => {
++  const thinkingLevel =
++    Number.isInteger(level) && level >= 0 && level < THINKING_BUDGETS.length
++      ? level
++      : DEFAULT_THINKING_LEVEL
++  write(KEYS.thinkingLevel, String(thinkingLevel))
++  useSettings.setState({ thinkingLevel })
++}
++
++/** 个性化页的「恢复默认设置」：清空系统提示词并把思考强度拨回标准挡 */
++export const resetPersonalization = () => {
++  write(KEYS.systemPrompt, null)
++  write(KEYS.thinkingLevel, null)
++  useSettings.setState({ systemPrompt: '', thinkingLevel: DEFAULT_THINKING_LEVEL })
 +}
