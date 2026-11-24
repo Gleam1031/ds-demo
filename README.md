@@ -2,6 +2,17 @@
 
 > 给接手者/另一个会话的完整交接说明见 [`HANDOVER.md`](HANDOVER.md)（目录结构、重建流程、环境坑、硬约束都在里面）。
 
+## 直接下载安装
+
+| 版本 | 说明 | 下载 |
+| --- | --- | --- |
+| **v1.0.1**（最新） | 新增聊天记录搜索、对话置顶、附件查看器修复 | [**DS-Demo-v1.0.1.apk**](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.1/DS-Demo-v1.0.1.apk) |
+| v1.0.0 | 首个公开版本（含首次启动引导页） | [DS-Demo-v1.0.0.apk](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.0/DS-Demo-v1.0.0.apk) |
+
+装好后首次打开会引导你填入**自己的 DeepSeek API Key**（按量计费，与 App 作者无关）。全部版本见 [Releases](https://github.com/Gleam1031/ds-demo/releases)。
+
+> 本应用为非官方打包，不隶属于 DeepSeek，也未获其背书。
+
 把 DeepSeek 官方开源前端 [`deepseek-ai/chat-demo`](https://github.com/deepseek-ai/chat-demo)（MIT）的静态构建产物，封装成 Android / iOS 原生壳应用。
 
 - **技术栈**：Capacitor 8.6.2（不使用 Cordova）

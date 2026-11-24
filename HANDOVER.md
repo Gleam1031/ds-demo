@@ -306,7 +306,7 @@ adb -s 10AF5B2FFY002LY install -r "…\app-debug.apk"
 
 ## 11. 待决事项 / 可选的下一步
 
-1. **GitHub 已发布（2026-11-21）**：仓库 <https://github.com/Gleam1031/no-name-yet>，**当前是 public**，`main` 分支首个提交 `78acd1c`（247 文件 / 5.6 MB）。用户对商标/起诉仍有顾虑，讨论过三种处置：
+1. **GitHub 已发布（2026-11-21）**：仓库 <https://github.com/Gleam1031/ds-demo>，**当前是 public**，`main` 分支首个提交 `78acd1c`（247 文件 / 5.6 MB）。用户对商标/起诉仍有顾虑，讨论过三种处置：
    - 设为 Private（风险归零，最彻底）
    - 公开源码但不挂 APK Release（最稳的公开方案）
    - 公开源码 + Release 挂 APK（可接受，但需保留免责声明）
