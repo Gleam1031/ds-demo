@@ -243,10 +243,10 @@ index 0000000..05fd3be
 +  )
 +}
 diff --git a/src/components/settings/Settings.module.css b/src/components/settings/Settings.module.css
-index f54e437..273b7b1 100644
+index f54e437..3a65b99 100644
 --- a/src/components/settings/Settings.module.css
 +++ b/src/components/settings/Settings.module.css
-@@ -440,3 +440,202 @@
+@@ -440,3 +440,206 @@
      max-width: 100%;
    }
  }
@@ -345,7 +345,9 @@ index f54e437..273b7b1 100644
 +  width: 100%;
 +  min-height: 40px;
 +  padding: 9px 12px;
-+  border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
++  /* 边框由主题文字色派生：浅色=黑、深色=白，自动跟随主题 */
++  border: 1px solid var(--dsw-alias-label-tertiary);
++  border-color: color-mix(in srgb, var(--dsw-alias-label-primary) 42%, transparent);
 +  border-radius: 10px;
 +  background: transparent;
 +  color: var(--dsw-alias-label-primary);
@@ -437,7 +439,9 @@ index f54e437..273b7b1 100644
 +  min-width: 132px;
 +  height: 36px;
 +  padding: 0 16px;
-+  border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
++  /* 边框由主题文字色派生：浅色=黑、深色=白，自动跟随主题 */
++  border: 1px solid var(--dsw-alias-label-tertiary);
++  border-color: color-mix(in srgb, var(--dsw-alias-label-primary) 42%, transparent);
 +  border-radius: 18px;
 +  background: transparent;
 +  color: var(--dsw-alias-label-primary);

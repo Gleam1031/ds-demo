@@ -189,6 +189,14 @@ messages: Too many documents: max 20 document blocks per request, got 27
 **UI 细节**（`PersonalizationPanel.tsx` + `Settings.module.css`）：
 
 - 系统提示词框：**宽度固定整行，只让高度自适应**。铺满容器宽（`width:100%`），高度在 `useLayoutEffect` 里 `height:auto → scrollHeight`（最小 40px＝一行），所以写几行就长几行，空态就是一行、不会有大片空白。默认提示词用原生 `::placeholder`（灰色），不截断也不在下面重复显示。~~早期版本曾做过"宽度 1/3→整行自适应"，实测空态只能显示「该助手为…」截断，观感很差，已废弃。~~
+- **边框跟随主题黑白**：不要用 `--dsw-alias-border-l2-darkmode-thin`（那是给分隔线用的极淡色，深色下几乎看不见）。改成由主题文字色派生：
+
+  ```css
+  border: 1px solid var(--dsw-alias-label-tertiary);                                  /* 不支持 color-mix 时的兜底 */
+  border-color: color-mix(in srgb, var(--dsw-alias-label-primary) 42%, transparent);  /* 浅色=黑 42%、深色=白 42% */
+  ```
+
+  实测计算值：浅色 `rgba(15,17,21,.42)`、深色 `rgba(249,250,251,.42)`；输入框与「恢复默认设置」按钮共用同一套边框。
 - 思考强度滑杆：`appearance:none` + `::-webkit-slider-runnable-track` 自绘轨道，高 **8px**（原默认约 4px 的两倍）、圆角、`linear-gradient(90deg, #6699FF, #B899FF)`；滑块是 20px 白色圆点。控件本身 `height: 40px` 作为触摸热区，`touch-action: pan-y`。
 
 **存储**（`services/settings.ts`）：
