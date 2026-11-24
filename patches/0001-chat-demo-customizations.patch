@@ -418,10 +418,10 @@ index 9a5bde3..061a097 100644
    readonly "list": string;
    readonly "section": string;
 diff --git a/src/components/sider/Sider.tsx b/src/components/sider/Sider.tsx
-index 2f3cf56..31beb55 100644
+index 2f3cf56..7a5c968 100644
 --- a/src/components/sider/Sider.tsx
 +++ b/src/components/sider/Sider.tsx
-@@ -1,9 +1,10 @@
+@@ -1,9 +1,11 @@
  import clsx from 'clsx'
  import { useEffect, useMemo, useState } from 'react'
  import { useTranslate } from '../../i18n/index.js'
@@ -430,10 +430,11 @@ index 2f3cf56..31beb55 100644
  import { setSiderCollapsed } from '../../services/settings.js'
  import { groupSessions } from '../../services/chat/sessionGroups.js'
 +import { splitPinned, usePins } from '../../services/chat/pins.js'
++import { warmSessionSearchIndex } from '../../services/chat/search.js'
  import { newChat, removeSession, useChatStore } from '../../services/chat/store.js'
  import type { SessionSummary } from '../../services/chat/types.js'
  import { Button } from '../base/Button.js'
-@@ -12,6 +13,7 @@ import { Modal } from '../base/Modal.js'
+@@ -12,6 +14,7 @@ import { Modal } from '../base/Modal.js'
  import { showToast } from '../base/toastState.js'
  import { openSettings } from '../settings/settingsDialogState.js'
  import { closeMobileSider, useMobileSider } from './mobileSiderState.js'
@@ -441,7 +442,7 @@ index 2f3cf56..31beb55 100644
  import { SessionItem } from './SessionItem.js'
  import styles from './Sider.module.css'
  
-@@ -21,7 +23,17 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
+@@ -21,10 +24,26 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
    const sessions = useChatStore((state) => state.sessions)
    const activeId = useChatStore((state) => state.activeId)
    const [now, setNow] = useState(Date.now)
@@ -460,7 +461,16 @@ index 2f3cf56..31beb55 100644
    const [deleting, setDeleting] = useState<SessionSummary | null>(null)
    const [deletePending, setDeletePending] = useState(false)
  
-@@ -61,6 +73,19 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
++  // 打开侧边栏时在后台预热搜索索引，避免点开搜索后干等几秒
++  useEffect(() => {
++    const timer = setTimeout(warmSessionSearchIndex, 300)
++    return () => clearTimeout(timer)
++  }, [])
++
+   useEffect(() => {
+     let timer: ReturnType<typeof setTimeout>
+     const refresh = () => {
+@@ -61,6 +80,19 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
            onClick={() => (mobile ? closeMobileSider() : setSiderCollapsed(true))}
          />
        </div>
@@ -678,12 +688,13 @@ index 85322eb..042a457 100644
  /** 思考用时（秒），至少 1 秒 */
 diff --git a/src/services/chat/search.ts b/src/services/chat/search.ts
 new file mode 100644
-index 0000000..b495d9c
+index 0000000..23a6b8f
 --- /dev/null
 +++ b/src/services/chat/search.ts
-@@ -0,0 +1,67 @@
+@@ -0,0 +1,132 @@
++import { useChatStore } from './store.js'
 +import { loadAllSessions } from './db.js'
-+import { toSessionSummary, type Session, type SessionSummary } from './types.js'
++import type { Session, SessionSummary } from './types.js'
 +
 +/** 一条搜索结果：会话摘要 + 命中位置附近的一段原文（标题命中时没有片段） */
 +export type SessionSearchHit = {
@@ -693,6 +704,27 @@ index 0000000..b495d9c
 +
 +/** 片段前后各保留的字符数 */
 +const SNIPPET_RADIUS = 36
++
++/**
++ * 本机会话动辄上千条、几十 MB，每次搜索都全量读 IndexedDB 要好几秒。
++ * 这里把"可搜索文本"缓存一小段时间：同一轮搜索里多次输入只读一次库。
++ */
++const INDEX_TTL = 60_000
++
++type IndexEntry = { id: string; updatedAt: number; title: string; text: string }
++type Index = { signature: string; builtAt: number; entries: IndexEntry[] }
++
++let index: Index | null = null
++
++/** 会话列表指纹：条数 + updatedAt 之和，变了就说明有增删或新消息 */
++const currentSignature = () => {
++  const sessions = useChatStore.getState().sessions
++  let sum = 0
++  for (const session of sessions) {
++    sum += session.updatedAt
++  }
++  return `${sessions.length}:${sum}`
++}
 +
 +/** 把会话里可搜索的文字拼起来：用户提问正文 + 回答的文本块（不含思考、工具结果） */
 +const sessionText = (session: Session): string => {
@@ -713,6 +745,43 @@ index 0000000..b495d9c
 +  return parts.join('\n')
 +}
 +
++const buildEntry = (session: Session): IndexEntry => ({
++  id: session.id,
++  updatedAt: session.updatedAt,
++  title: session.title ?? '',
++  text: sessionText(session),
++})
++
++const getEntries = async (): Promise<IndexEntry[]> => {
++  const signature = currentSignature()
++  if (index && index.signature === signature && Date.now() - index.builtAt < INDEX_TTL) {
++    return index.entries
++  }
++  const sessions = await loadAllSessions()
++  const entries = sessions.map(buildEntry)
++  index = { signature, builtAt: Date.now(), entries }
++  return entries
++}
++
++/**
++ * 提前构建搜索索引（打开侧边栏时调用）：会话多时首次建索引要几秒，
++ * 放在后台先做，用户真正点开搜索时通常已经就绪。
++ */
++export const warmSessionSearchIndex = () => {
++  void getEntries().catch(() => {
++    // 预热失败不影响之后的正常搜索
++  })
++}
++
++/** 搜索用到的摘要优先取 store 里的原件（createdAt 等信息完整）；缺失时退化构造一个 */
++const summaryOf = (entry: IndexEntry, known: Map<string, SessionSummary>): SessionSummary =>
++  known.get(entry.id) ?? {
++    id: entry.id,
++    title: entry.title,
++    createdAt: entry.updatedAt,
++    updatedAt: entry.updatedAt,
++  }
++
 +const makeSnippet = (text: string, index: number, length: number): string => {
 +  const start = Math.max(0, index - SNIPPET_RADIUS)
 +  const end = Math.min(text.length, index + length + SNIPPET_RADIUS)
@@ -720,30 +789,36 @@ index 0000000..b495d9c
 +  return `${start > 0 ? '…' : ''}${body}${end < text.length ? '…' : ''}`
 +}
 +
++/** 用户输入按字面量匹配，避免把 . * 等当成正则元字符 */
++const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
++
 +/**
-+ * 本地全文搜索：直接读本机会话库，按标题和消息正文匹配，不区分大小写。
++ * 本地全文搜索：匹配标题与消息正文，不区分大小写。
 + * 结果按最近更新排序；`limit` 限制返回条数，避免长列表卡顿。
++ *
++ * 用带 `i` 标志的正则而不是 `toLowerCase()`：几十 MB 文本下前者快一个数量级，
++ * 也不会额外复制一份小写文本占用内存。
 + */
 +export const searchSessions = async (query: string, limit = 30): Promise<SessionSearchHit[]> => {
-+  const needle = query.trim().toLowerCase()
-+  if (!needle) {
++  const keyword = query.trim()
++  if (!keyword) {
 +    return []
 +  }
 +
-+  const sessions = await loadAllSessions()
++  const pattern = new RegExp(escapeRegExp(keyword), 'i')
++  const entries = await getEntries()
++  const known = new Map(useChatStore.getState().sessions.map((session) => [session.id, session]))
 +  const hits: SessionSearchHit[] = []
 +
-+  for (const session of sessions) {
-+    const title = session.title ?? ''
-+    const text = sessionText(session)
-+    const inTitle = title.toLowerCase().includes(needle)
-+    const textIndex = text.toLowerCase().indexOf(needle)
-+    if (!inTitle && textIndex < 0) {
++  for (const entry of entries) {
++    const inTitle = pattern.test(entry.title)
++    const match = inTitle ? null : pattern.exec(entry.text)
++    if (!inTitle && !match) {
 +      continue
 +    }
 +    hits.push({
-+      session: toSessionSummary(session),
-+      snippet: textIndex >= 0 ? makeSnippet(text, textIndex, needle.length) : undefined,
++      session: summaryOf(entry, known),
++      snippet: match ? makeSnippet(entry.text, match.index, match[0].length) : undefined,
 +    })
 +  }
 +
