@@ -35,6 +35,97 @@ index 25f10ea..83c41c4 100644
  export const IconCheckOutline16 = () => (
    <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
      <path
+diff --git a/src/components/settings/Settings.module.css b/src/components/settings/Settings.module.css
+index f54e437..b5c6fc1 100644
+--- a/src/components/settings/Settings.module.css
++++ b/src/components/settings/Settings.module.css
+@@ -440,3 +440,23 @@
+     max-width: 100%;
+   }
+ }
++
++/* 个性化入口：右侧只有一个箭头，具体设置后续接入 */
++.personalizationEntry {
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  width: 28px;
++  height: 28px;
++  padding: 0;
++  border: 0;
++  border-radius: 50%;
++  background: transparent;
++  color: var(--dsw-alias-label-tertiary);
++  cursor: pointer;
++  -webkit-tap-highlight-color: transparent;
++}
++
++.personalizationEntry:active {
++  background: var(--dsw-alias-interactive-bg-hover);
++}
+diff --git a/src/components/settings/Settings.module.css.d.ts b/src/components/settings/Settings.module.css.d.ts
+index 860646a..76cb500 100644
+--- a/src/components/settings/Settings.module.css.d.ts
++++ b/src/components/settings/Settings.module.css.d.ts
+@@ -33,6 +33,9 @@ declare const styles: {
+   readonly "importConfirmText": string;
+   readonly "deleteConfirm": string;
+   readonly "deleteActions": string;
++
++  readonly "personalizationEntry": string;
+ };
+ export = styles;
+ 
++
+diff --git a/src/components/settings/SettingsDialog.tsx b/src/components/settings/SettingsDialog.tsx
+index a74b591..a562807 100644
+--- a/src/components/settings/SettingsDialog.tsx
++++ b/src/components/settings/SettingsDialog.tsx
+@@ -1,6 +1,7 @@
+ import clsx from 'clsx'
+ import { useRef, useState, type ReactNode } from 'react'
+ import {
++  IconChevronRightOutline14,
+   IconDarkOutline16,
+   IconDataOutline16,
+   IconDownloadOutline16,
+@@ -100,6 +101,7 @@ const SettingsContent = () => {
+               <LocaleSetting />
+               <TtsVoiceSetting />
+               <LocationSetting />
++              <PersonalizationSetting />
+             </>
+           ) : (
+             <>
+@@ -269,6 +271,28 @@ const LocationSetting = () => {
+   )
+ }
+ 
++/** 个性化：先放一个占位入口，具体设置项后续接入 */
++const PersonalizationSetting = () => {
++  const t = useTranslate()
++  return (
++    <SettingCell
++      label={t('settingsPersonalization')}
++      description={t('settingsPersonalizationHint')}
++      status={null}
++      action={
++        <button
++          type="button"
++          className={styles.personalizationEntry}
++          aria-label={t('settingsPersonalization')}
++          onClick={() => showToast({ key: 'settingsPersonalizationToast' })}
++        >
++          <IconChevronRightOutline14 />
++        </button>
++      }
++    />
++  )
++}
++
+ const LocaleSetting = () => {
+   const t = useTranslate()
+   const locale = useSettings((state) => state.locale)
 diff --git a/src/components/sider/SessionItem.module.css b/src/components/sider/SessionItem.module.css
 index 6ccb2cf..86b90ce 100644
 --- a/src/components/sider/SessionItem.module.css
@@ -507,7 +598,7 @@ index 0000000..c3b4cc5
 +
 +export const closeSessionSearch = () => useSessionSearch.setState({ open: false })
 diff --git a/src/i18n/en.ts b/src/i18n/en.ts
-index 2d49027..d222070 100644
+index 2d49027..1653227 100644
 --- a/src/i18n/en.ts
 +++ b/src/i18n/en.ts
 @@ -6,6 +6,16 @@ export const en = {
@@ -527,8 +618,18 @@ index 2d49027..d222070 100644
    untitledChat: 'New chat',
    sessionLoading: 'Loading chats...',
    sessionListLoadFailed: 'Unable to load the chat list. Please try again.',
+@@ -97,6 +107,9 @@ export const en = {
+   settingsLocationProvince: 'Select province/region',
+   settingsLocationCity: 'Select city',
+   settingsLocationRegion: 'Select country or region',
++  settingsPersonalization: 'Personalization',
++  settingsPersonalizationHint: 'Customize chat style and tone (coming soon)',
++  settingsPersonalizationToast: 'Personalization settings are coming soon',
+   settingDialogAsideGeneralOptionLabel: 'General',
+   settingDialogAsideDataOptionLabel: 'Data',
+   avatarMenuSettingsDialogThemeItemLabel: 'Theme',
 diff --git a/src/i18n/zh.ts b/src/i18n/zh.ts
-index d99f058..eedef89 100644
+index d99f058..b22b17f 100644
 --- a/src/i18n/zh.ts
 +++ b/src/i18n/zh.ts
 @@ -4,6 +4,15 @@ export const zh = {
@@ -547,6 +648,16 @@ index d99f058..eedef89 100644
    untitledChat: '新对话',
    sessionLoading: '正在加载对话...',
    sessionListLoadFailed: '对话列表加载失败，请重试',
+@@ -92,6 +101,9 @@ export const zh = {
+   settingsLocationProvince: '请选择省份/地区',
+   settingsLocationCity: '请选择市',
+   settingsLocationRegion: '请选择国家或地区',
++  settingsPersonalization: '个性化',
++  settingsPersonalizationHint: '自定义对话风格与语气（即将支持）',
++  settingsPersonalizationToast: '个性化设置即将上线，敬请期待',
+   settingDialogAsideGeneralOptionLabel: '通用设置',
+   settingDialogAsideDataOptionLabel: '数据管理',
+   avatarMenuSettingsDialogThemeItemLabel: '主题',
 diff --git a/src/services/chat/db.ts b/src/services/chat/db.ts
 index a1f58ea..eecdef8 100644
 --- a/src/services/chat/db.ts
