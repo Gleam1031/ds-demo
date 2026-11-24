@@ -6,7 +6,8 @@
 
 | 版本 | 说明 | 下载 |
 | --- | --- | --- |
-| **v1.0.1**（最新） | 新增聊天记录搜索、对话置顶、附件查看器修复 | [**DS-Demo-v1.0.1.apk**](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.1/DS-Demo-v1.0.1.apk) |
+| **v1.0.2**（最新） | 拍照上传、附件查看器修复、相机图标修正、个性化入口 | [**DS-Demo-v1.0.2.apk**](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.2/DS-Demo-v1.0.2.apk) |
+| v1.0.1 | 新增聊天记录搜索、对话置顶、附件查看器修复 | [DS-Demo-v1.0.1.apk](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.1/DS-Demo-v1.0.1.apk) |
 | v1.0.0 | 首个公开版本（含首次启动引导页） | [DS-Demo-v1.0.0.apk](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.0/DS-Demo-v1.0.0.apk) |
 
 装好后首次打开会引导你填入**自己的 DeepSeek API Key**（按量计费，与 App 作者无关）。全部版本见 [Releases](https://github.com/Gleam1031/ds-demo/releases)。
