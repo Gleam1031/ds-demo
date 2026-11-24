@@ -26,6 +26,7 @@ const MARKER = 'dsh-shell-ui';
 const ASSETS = [
   { css: 'shell-about.css', js: 'shell-about.js' },
   { css: 'shell-onboarding.css', js: 'shell-onboarding.js' },
+  { css: 'shell-file-viewer.css', js: 'shell-file-viewer.js' },
 ];
 
 if (!fs.existsSync(path.join(dist, 'index.html'))) {

@@ -1,0 +1,123 @@
+/* 附件查看器（图片 / 不支持预览的文件）——固定深色背景，两种主题下都清楚 */
+
+.dsh-fv {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.96);
+  color: #f5f6f7;
+  color-scheme: dark;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.dsh-fv-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  height: 52px;
+  padding: 0 8px 0 16px;
+}
+
+.dsh-fv-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.dsh-fv-close {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dsh-fv-close:active {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.dsh-fv-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 8px 12px 24px;
+}
+
+.dsh-fv-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  cursor: zoom-out;
+}
+
+.dsh-fv-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 340px;
+  padding: 24px 20px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.07);
+  text-align: center;
+}
+
+.dsh-fv-card-icon {
+  display: flex;
+  opacity: 0.75;
+}
+
+.dsh-fv-card-name {
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.dsh-fv-card-note {
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.dsh-fv-card-meta {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  min-height: 14px;
+}
+
+.dsh-fv-back {
+  margin-top: 6px;
+  min-width: 140px;
+  height: 40px;
+  border: 0;
+  border-radius: 20px;
+  background: #4d6bfe;
+  color: #fff;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dsh-fv-back:active {
+  background: #3f59d8;
+}

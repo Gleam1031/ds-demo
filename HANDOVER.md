@@ -164,6 +164,24 @@ messages: Too many documents: max 20 document blocks per request, got 27
 1. **用 `new RegExp(escapeRegExp(q), 'i')` 而不是 `toLowerCase().includes()`**——实测前者 15 ms、后者 229 ms（31.5 MB 文本），且正则不额外复制一份小写文本占内存；
 2. **索引只缓存 60 秒**，长期常驻会增加约 30 MB 内存；签名（条数 + updatedAt 之和）变化时立即重建，避免搜到过期内容。
 
+### 5.7 附件查看器（修复"点开附件后回不来"）
+
+**现象**：在 App 内点任意附件（图片或其他文件）后无法回到聊天，只能杀掉重进。
+
+**根因**（源码 + 真机复现确认）：
+- chat-demo 打开附件用的是 `blob:` URL —— 图片是 `<a href="blob:…" target="_blank">`，其他文件是 `window.open(url, '_blank')`；
+- Capacitor 的 `Bridge.launchIntent()` 对 `blob:` **直接返回 false**（`Bridge.java` L409），意思是"交给 WebView 自己处理"；
+- Capacitor 又没开启多窗口（未调用 `setSupportMultipleWindows`），新窗口请求退化为**就地导航**；
+- 结果 App 界面被替换成文件内容，没有返回入口；实测连 Activity 都会被切到桌面。
+
+**修法**（纯壳层注入，未改 chat-demo）：`scripts/ui/shell-file-viewer.js`
+- 捕获阶段拦截所有 `a[href^="blob:"]` 的点击，`preventDefault + stopPropagation`；
+- 包装 `window.open`，`blob:` 参数交给自己的查看器，其他 URL 走原实现；
+- 查看器先用 `Image` 探测：能解码就全屏看图（点图 / 右上角 ✕ / Esc 关闭），否则显示"暂不支持应用内预览"的说明卡片 + 文件名 + 大小 + 返回按钮。
+- 层级 2000，高于 chat-demo 弹窗（1000+）、关于页（999）、引导页（1100）。
+
+**已验证**（真机 CDP 注入 blob 实测）：图片打开后 `location.href` 仍是 `https://localhost/`、点击图片即关闭；文本 blob 显示说明卡片、点「返回聊天」关闭；两种情况 App 都没有被导航走。
+
 ---
 
 ## 6. 标准重建流程（改完东西后照这个走）
