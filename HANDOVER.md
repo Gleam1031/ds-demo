@@ -328,7 +328,7 @@ adb -s 10AF5B2FFY002LY install -r "…\app-debug.apk"
 4. ❌ 不要删除 `~\.gradle\wrapper\dists\gradle-8.14.3-all\…`（删了必构建失败，见 7.1）
 5. ❌ 不要删除 `dist/LICENSE` 或 `THIRD_PARTY_NOTICES.txt`（合规必需）
 6. ❌ 不要在未确认的情况下重新生成/覆盖 `scripts/bundled-packages.json`（`gen-bundled-packages.mjs` 已加空结果防护，但仍应核对 95 条）
-7. ❌ 不要把用户手机截图里的私人内容（聊天记录、通知）提交进 `docs/`
+7. ❌ **`docs/` 里一律不放真机截图**（用户明确要求）。需要配图时用无头浏览器渲染 `dist/` 生成，文件统一以 `preview-` 开头；这样既没有状态栏（时间/电量/通知图标），也不可能带出聊天记录。历史上曾有 5 张 `device-*.png`（只含引导页/关于页/欢迎页，无聊天内容），已经删除。
 8. ❌ 不要试图"顺手"把 `DeepSeek` 从 README/关于页全部删干净——归属声明是合规要求
 
 ---

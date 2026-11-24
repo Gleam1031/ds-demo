@@ -56,17 +56,18 @@ deepseek-app/
 | --- | --- |
 | ![设置](docs/preview-390x844-settings.png) | ![聊天](docs/preview-390x844-chat.png) |
 
-真机实拍（vivo V2444A，720×1608）：
+真机同视口渲染预览（390×844，本地静态服务 + 无头浏览器，**不含任何手机截图/状态栏**）：
 
 | 主页右上角 ⋮ 入口 | 点开后的「关于 / 开源许可」 |
 | --- | --- |
-| ![关于入口](docs/device-home-about-entry.png) | ![关于面板](docs/device-about-panel.png) |
+| ![关于入口](docs/preview-about-entry.png) | ![关于面板](docs/preview-about-panel.png) |
 
-首次启动引导页（真机，同一页的上/下两屏）：
+首次启动引导页（同一屏，已含底部免责声明）：
 
-| 上半：为什么需要 Key + 官网三步 | 下半：粘贴保存 / 稍后再说 |
-| --- | --- |
-| ![引导页上半](docs/device-onboarding-1.png) | ![引导页下半](docs/device-onboarding-2.png) |
+| 引导页 |
+| --- |
+| ![引导页](docs/preview-onboarding.png) |
+
 
 ## 首次启动引导页
 
@@ -104,7 +105,7 @@ chat-demo 用 `blob:` URL 打开附件，而 Capacitor 的 WebView 既不能把 
 - 图片 → 应用内全屏查看，点图片 / 右上角 ✕ 即可返回；
 - 其他类型 → 显示文件信息与「返回聊天」，不再丢界面。
 
-![附件查看器](docs/device-file-viewer.png)
+![附件查看器](docs/preview-file-viewer.png)
 
 **⑤ 个性化入口（占位）**
 设置 → 通用设置 → 「位置信息」下方新增「个性化」一行，描述为「自定义对话风格与语气（即将支持）」，点击只提示即将上线。**具体功能尚未接入**。
