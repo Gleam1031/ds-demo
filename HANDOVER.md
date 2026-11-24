@@ -150,6 +150,7 @@ messages: Too many documents: max 20 document blocks per request, got 27
 | **聊天记录搜索** | 侧边栏「开启新对话」上方按钮（`styles.searchSessions`，与 newChat 同为 40px 高、100% 宽）；弹窗 `SessionSearch.tsx` + 状态 `sessionSearchState.ts`；查询走 `services/chat/search.ts`：直接读 IndexedDB 的 `sessions`（`db.ts` 新导出 `loadAllSessions`），匹配标题与消息正文（用户正文 + 回答文本块），片段带 `…` 截断，180ms 防抖 |
 | **对话置顶** | `services/chat/pins.ts`：置顶 id 存 `localStorage['chat-demo:pinned-sessions']`；`splitPinned()` 把置顶项提到最前，`Sider` 渲染「置顶」分区；`SessionItem` 菜单加「置顶/取消置顶」并显示图钉；**触屏支持长按标题**（450ms，位移 >12px 才取消，避免轻微抖动导致失效），长按后抬起不再切换会话 |
 | **个性化入口（占位）** | 设置 → 通用设置 → 位置信息下方一行「个性化」，描述「自定义对话风格与语气（即将支持）」，右侧箭头点击只弹 toast；**功能未接入**，后续在此扩展 |
+| **拍照上传** | `ChatInput` 工具栏在语音与附件之间新增相机按钮 + 隐藏的 `<input type="file" accept="image/*" capture="environment">`；照片经现有 `acceptFiles()` 走同一上传/预览链路。**不要给 App 声明 CAMERA 权限**——Capacitor 只在"未声明"该权限时才直接走 `ACTION_IMAGE_CAPTURE`，声明了反而要运行时授权（见 `BridgeWebChromeClient.isMediaCaptureSupported()`） |
 
 > 搜索弹窗挂在 `App.tsx` 根部，不随侧边栏抽屉关闭而卸载。
 

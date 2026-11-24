@@ -121,6 +121,14 @@ chat-demo 用 `blob:` URL 打开附件，而 Capacitor 的 WebView 既不能把 
 **⑤ 个性化入口（占位）**
 设置 → 通用设置 → 「位置信息」下方新增「个性化」一行，描述为「自定义对话风格与语气（即将支持）」，点击只提示即将上线。**具体功能尚未接入**。
 
+**⑥ 拍照上传**
+输入框工具栏在「语音」与「上传文件」之间新增相机按钮：点击直接唤起系统相机（`<input type="file" accept="image/*" capture="environment">`），拍完确认后照片走与普通图片附件完全相同的上传/预览链路。
+
+![拍照按钮](docs/device-camera-button.png)
+
+- Android 侧**无需**声明 `CAMERA` 权限：Capacitor 在 App 未声明该权限时直接走 `ACTION_IMAGE_CAPTURE`，由相机 App 处理拍照；
+- 桌面浏览器上 `capture` 会被忽略，退化为"仅选择图片"的文件选择框。
+
 ## 填入 API Key
 
 首次启动会先显示上面的**引导页**：照着三步去官网拿 Key，回来粘贴进输入框即可；点「稍后再说」则会落到官方 demo 自带的「设置」面板，那里同样有输入框。

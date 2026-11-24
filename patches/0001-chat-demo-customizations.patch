@@ -19,10 +19,22 @@ index d204c0f..f189a3c 100644
      </>
    )
 diff --git a/src/components/base/icons.tsx b/src/components/base/icons.tsx
-index 25f10ea..83c41c4 100644
+index 25f10ea..62ca77c 100644
 --- a/src/components/base/icons.tsx
 +++ b/src/components/base/icons.tsx
-@@ -1,3 +1,12 @@
+@@ -1,3 +1,24 @@
++export const IconCameraOutline16 = () => (
++  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
++    <path
++      d="M2.2 5.6h2.3l1.1-1.7h4.8l1.1 1.7h2.3a.9.9 0 0 1 .9.9v6.2a.9.9 0 0 1-.9.9H2.2a.9.9 0 0 1-.9-.9V6.5a.9.9 0 0 1 .9-.9Z"
++      stroke="currentColor"
++      strokeWidth={1.3}
++      strokeLinejoin="round"
++    />
++    <circle cx="8" cy="9.3" r="2.3" stroke="currentColor" strokeWidth={1.3} />
++  </svg>
++)
++
 +export const IconPinOutline16 = () => (
 +  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 +    <path
@@ -35,6 +47,53 @@ index 25f10ea..83c41c4 100644
  export const IconCheckOutline16 = () => (
    <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
      <path
+diff --git a/src/components/chatInput/ChatInput.tsx b/src/components/chatInput/ChatInput.tsx
+index 7a66a71..404b2f3 100644
+--- a/src/components/chatInput/ChatInput.tsx
++++ b/src/components/chatInput/ChatInput.tsx
+@@ -1,6 +1,7 @@
+ import clsx from 'clsx'
+ import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+ import {
++  IconCameraOutline16,
+   IconGlobeLanguageOutline14,
+   IconPaperclipOutline16,
+   IconSendOutline16,
+@@ -54,6 +55,8 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
+   const isMobile = useIsMobile()
+   const search = useSettings((state) => state.search)
+   const fileInputRef = useRef<HTMLInputElement>(null)
++  /** 拍照：单独的 input 带 capture，点击直接唤起系统相机 */
++  const cameraInputRef = useRef<HTMLInputElement>(null)
+   const textareaRef = useRef<HTMLTextAreaElement>(null)
+   const togglesRef = useRef<HTMLDivElement>(null)
+ 
+@@ -241,6 +244,25 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
+               }
+             }}
+           />
++          <IconButton
++            size="m"
++            tone="primary"
++            icon={<IconCameraOutline16 />}
++            tooltip={t('takePhoto')}
++            disabled={importingHistory}
++            onClick={() => ensureApiKey() && cameraInputRef.current?.click()}
++          />
++          <input
++            ref={cameraInputRef}
++            type="file"
++            hidden
++            accept="image/*"
++            capture="environment"
++            onChange={(event) => {
++              acceptFiles(Array.from(event.target.files ?? []))
++              event.target.value = ''
++            }}
++          />
+           <IconButton
+             size="m"
+             tone="primary"
 diff --git a/src/components/settings/Settings.module.css b/src/components/settings/Settings.module.css
 index f54e437..b5c6fc1 100644
 --- a/src/components/settings/Settings.module.css
@@ -598,7 +657,7 @@ index 0000000..c3b4cc5
 +
 +export const closeSessionSearch = () => useSessionSearch.setState({ open: false })
 diff --git a/src/i18n/en.ts b/src/i18n/en.ts
-index 2d49027..1653227 100644
+index 2d49027..8ea2786 100644
 --- a/src/i18n/en.ts
 +++ b/src/i18n/en.ts
 @@ -6,6 +6,16 @@ export const en = {
@@ -628,8 +687,16 @@ index 2d49027..1653227 100644
    settingDialogAsideGeneralOptionLabel: 'General',
    settingDialogAsideDataOptionLabel: 'Data',
    avatarMenuSettingsDialogThemeItemLabel: 'Theme',
+@@ -144,6 +157,7 @@ export const en = {
+   deactivatedSearchTooltip: 'Search the web when necessary',
+   search: 'Search',
+   uploadFile: 'Upload files',
++  takePhoto: 'Take photo',
+   chatInputStopButtonTooltip: 'Stop',
+   uploadMaxMBSize: 'File exceeds the size limit ({size} MB). Please adjust and try again.',
+   uploadMaxFiles: 'You can upload up to {count} files',
 diff --git a/src/i18n/zh.ts b/src/i18n/zh.ts
-index d99f058..b22b17f 100644
+index d99f058..fcc7ed2 100644
 --- a/src/i18n/zh.ts
 +++ b/src/i18n/zh.ts
 @@ -4,6 +4,15 @@ export const zh = {
@@ -658,6 +725,14 @@ index d99f058..b22b17f 100644
    settingDialogAsideGeneralOptionLabel: '通用设置',
    settingDialogAsideDataOptionLabel: '数据管理',
    avatarMenuSettingsDialogThemeItemLabel: '主题',
+@@ -136,6 +148,7 @@ export const zh = {
+   deactivatedSearchTooltip: '按需搜索网页',
+   search: '智能搜索',
+   uploadFile: '上传文件',
++  takePhoto: '拍照',
+   chatInputStopButtonTooltip: '停止生成',
+   uploadMaxMBSize: '单个文件大小超过限制（{size}MB），请调整后重试',
+   uploadMaxFiles: '上传文件最多支持 {count} 个',
 diff --git a/src/services/chat/db.ts b/src/services/chat/db.ts
 index a1f58ea..eecdef8 100644
 --- a/src/services/chat/db.ts
