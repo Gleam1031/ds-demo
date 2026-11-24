@@ -15,6 +15,20 @@
 
 > 本应用为非官方打包，不隶属于 DeepSeek，也未获其背书。
 
+## 密钥安全
+
+**本仓库与本 App 都不包含任何 API Key。** 你的 Key 只存在自己手机的本地存储里（WebView `localStorage`，键名 `chat-demo:api-key`），只在你发消息时发给 `api.deepseek.com`，不经过 GitHub、不打包进 APK。
+
+公开仓库下载量里有相当一部分来自自动化抓取（镜像站、数据集爬虫、安全扫描器），它们搬走的是 APK 文件本身，读不到任何人的 Key。真正会导致 Key 泄漏的只有：把 Key 写进代码再提交、截图/聊天里露出、手机被他人使用。
+
+三道防线：
+
+1. **GitHub 端**：本仓库已开启 Secret Scanning + Push Protection（含 `sk-` 类密钥），一旦有人提交疑似密钥会被直接拦下；
+2. **本地端**：提交前跑 `npm run scan:secrets`，命中即报错并打码输出；
+3. **习惯端**：App 内导出的历史对话**不包含 API Key**，可以放心备份或分享。
+
+如果怀疑 Key 外泄：到 [DeepSeek 开放平台](https://platform.deepseek.com/api_keys) 查看用量，异常就立即吊销重发。
+
 把 DeepSeek 官方开源前端 [`deepseek-ai/chat-demo`](https://github.com/deepseek-ai/chat-demo)（MIT）的静态构建产物，封装成 Android / iOS 原生壳应用。
 
 - **技术栈**：Capacitor 8.6.2（不使用 Cordova）
