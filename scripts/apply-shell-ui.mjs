@@ -12,6 +12,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -68,12 +69,23 @@ if (addedCss || addedJs) {
   console.log('index.html 已包含全部壳层 UI 标签，跳过注入（静态资源已刷新）');
 }
 
+// 许可清单是合规必需项：刷新 dist（比如从 chat-demo/dist 覆盖）会把它冲掉，
+// 所以这里缺失就自动补生成，避免出现"APK 里少了第三方许可"这种退化。
 const notices = path.join(dist, 'THIRD_PARTY_NOTICES.txt');
 if (!fs.existsSync(notices)) {
-  console.warn('⚠ dist/THIRD_PARTY_NOTICES.txt 不存在，App 内许可页会回退到 LICENSE。先运行: node scripts/gen-notices.mjs');
-} else {
-  console.log(`✓ 许可清单: ${(fs.statSync(notices).size / 1024).toFixed(1)} KB`);
+  console.warn('⚠ dist/THIRD_PARTY_NOTICES.txt 缺失，自动重新生成…');
+  try {
+    execFileSync(process.execPath, [path.join(here, 'gen-notices.mjs')], { stdio: 'inherit' });
+  } catch (error) {
+    console.error('✗ 自动生成许可清单失败:', error.message);
+  }
 }
+
+if (!fs.existsSync(notices)) {
+  console.error('✗ dist/THIRD_PARTY_NOTICES.txt 仍不存在，APK 会缺少第三方许可声明。请先修复 gen-notices.mjs。');
+  process.exit(1);
+}
+console.log(`✓ 许可清单: ${(fs.statSync(notices).size / 1024).toFixed(1)} KB`);
 
 console.log(`✓ 已就位: ${copied.join(', ')}`);
 console.log('后续: npx cap sync（把 dist 同步进 android/ 与 ios/）');

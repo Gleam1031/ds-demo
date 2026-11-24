@@ -94,7 +94,7 @@ deepseek-app/
 |---|---|
 | `scripts/gen-bundled-packages.mjs` | 用 rspack 统计**真正被打进产物**的第三方包 → 写 `scripts/bundled-packages.json`（当前 95 个） |
 | `scripts/gen-notices.mjs` | 按上述清单逐包抓 version/license/许可全文 → 生成 `THIRD_PARTY_NOTICES.txt`（根目录带 BOM；`dist/` 内无 BOM） |
-| `scripts/apply-shell-ui.mjs` | 把 `scripts/ui/` 下资源复制进 `dist/` 并向 `dist/index.html` 注入标签（**按资源逐个判断**，后续新增资源也能注入） |
+| `scripts/apply-shell-ui.mjs` | 把 `scripts/ui/` 下资源复制进 `dist/` 并向 `dist/index.html` 注入标签（**按资源逐个判断**，后续新增资源也能注入）；若 `dist/THIRD_PARTY_NOTICES.txt` 缺失会**自动调用 gen-notices 补生成**，仍失败则退出 1 |
 | `scripts/ui/shell-about.js` / `.css` | 「关于」按钮与许可面板的实现 |
 | `scripts/ui/shell-onboarding.js` / `.css` | 首次启动引导页：解释 API Key → 官网三步操作 → 直接填写保存 |
 | `scripts/apply-chat-demo-patches.mjs` | 把 `patches/*.patch` 幂等地应用到 `../chat-demo`（`--check` 只检查、不落地） |
