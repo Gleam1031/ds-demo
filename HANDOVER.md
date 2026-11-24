@@ -149,6 +149,7 @@ messages: Too many documents: max 20 document blocks per request, got 27
 | **附件省略提示** | `reply.ts` 的 `pruneDocumentBlocks` 返回被省略数量，`toRequestMessages` 触发 `showToast({ key: 'documentBlocksOmitted', params })`（复用 chat-demo 自带 Toast）。文案键 zh/en 都加 |
 | **聊天记录搜索** | 侧边栏「开启新对话」上方按钮（`styles.searchSessions`，与 newChat 同为 40px 高、100% 宽）；弹窗 `SessionSearch.tsx` + 状态 `sessionSearchState.ts`；查询走 `services/chat/search.ts`：直接读 IndexedDB 的 `sessions`（`db.ts` 新导出 `loadAllSessions`），匹配标题与消息正文（用户正文 + 回答文本块），片段带 `…` 截断，180ms 防抖 |
 | **对话置顶** | `services/chat/pins.ts`：置顶 id 存 `localStorage['chat-demo:pinned-sessions']`；`splitPinned()` 把置顶项提到最前，`Sider` 渲染「置顶」分区；`SessionItem` 菜单加「置顶/取消置顶」并显示图钉；**触屏支持长按标题**（450ms，位移 >12px 才取消，避免轻微抖动导致失效），长按后抬起不再切换会话 |
+| **个性化入口（占位）** | 设置 → 通用设置 → 位置信息下方一行「个性化」，描述「自定义对话风格与语气（即将支持）」，右侧箭头点击只弹 toast；**功能未接入**，后续在此扩展 |
 
 > 搜索弹窗挂在 `App.tsx` 根部，不随侧边栏抽屉关闭而卸载。
 
