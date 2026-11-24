@@ -41,3 +41,7 @@ local.properties
 
 # ---- 脚本临时产物 ----
 scripts/.stats-out/
+
+# 内部研发日志：只留本地，不进公开仓库（内容含本机路径、设备信息、排查细节）
+DEVLOG*.md
+*.internal.md
