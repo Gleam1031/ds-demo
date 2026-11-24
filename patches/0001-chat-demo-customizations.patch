@@ -19,22 +19,23 @@ index d204c0f..f189a3c 100644
      </>
    )
 diff --git a/src/components/base/icons.tsx b/src/components/base/icons.tsx
-index 25f10ea..55bb39d 100644
+index 25f10ea..5aa4d60 100644
 --- a/src/components/base/icons.tsx
 +++ b/src/components/base/icons.tsx
-@@ -1,3 +1,27 @@
+@@ -1,3 +1,28 @@
 +/**
-+ * 相机：与工具栏其它图标一致用实心填充（线框会显得又小又轻），
-+ * 并用 evenodd 挖出镜头。外形尺寸刻意贴近 16 单位方框的上下边距。
++ * 相机：与工具栏其它图标一样是"线条"观感（它们是描边形状的填充路径），
++ * 所以这里直接用 stroke，线宽 1.45 与其轮廓厚度一致，外形撑到接近 16 单位方框。
 + */
 +export const IconCameraOutline16 = () => (
 +  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 +    <path
-+      fillRule="evenodd"
-+      clipRule="evenodd"
-+      fill="currentColor"
-+      d="M6 0.9h4l1.05 1.5h2.55A1.8 1.8 0 0 1 15.2 4.2v9.1a1.8 1.8 0 0 1-1.8 1.8H2.6a1.8 1.8 0 0 1-1.8-1.8V4.2a1.8 1.8 0 0 1 1.8-1.8h2.55L6 0.9Zm2 5.3a2.7 2.7 0 1 0 0 5.4 2.7 2.7 0 0 0 0-5.4Z"
++      d="M6 1.4H10L11.1 3.2H13A2 2 0 0 1 15 5.2V12.8A2 2 0 0 1 13 14.8H3A2 2 0 0 1 1 12.8V5.2A2 2 0 0 1 3 3.2H4.9Z"
++      stroke="currentColor"
++      strokeWidth={1.45}
++      strokeLinejoin="round"
 +    />
++    <circle cx="8" cy="9" r="2.7" stroke="currentColor" strokeWidth={1.45} />
 +  </svg>
 +)
 +
