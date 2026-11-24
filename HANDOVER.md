@@ -188,7 +188,7 @@ messages: Too many documents: max 20 document blocks per request, got 27
 
 **UI 细节**（`PersonalizationPanel.tsx` + `Settings.module.css`）：
 
-- 系统提示词框：**宽度随内容自适应**。用一个 `visibility:hidden; white-space:pre` 的镜像 `span` 量出单行文本宽度，取 `clamp(容器 1/3, 内容宽, 整行)` 写到包裹层 `.personalizationInputWrap` 的 `width`；高度用 `scrollTo`-style 的 `height:auto → scrollHeight` 撑开。空态固定为 1/3 宽（一行高），占位文字用绝对定位的覆盖层（不是 `::placeholder`），这样长文本可以单行省略，完整默认提示词放在下方 hint 里。
+- 系统提示词框：**宽度固定整行，只让高度自适应**。铺满容器宽（`width:100%`），高度在 `useLayoutEffect` 里 `height:auto → scrollHeight`（最小 40px＝一行），所以写几行就长几行，空态就是一行、不会有大片空白。默认提示词用原生 `::placeholder`（灰色），不截断也不在下面重复显示。~~早期版本曾做过"宽度 1/3→整行自适应"，实测空态只能显示「该助手为…」截断，观感很差，已废弃。~~
 - 思考强度滑杆：`appearance:none` + `::-webkit-slider-runnable-track` 自绘轨道，高 **8px**（原默认约 4px 的两倍）、圆角、`linear-gradient(90deg, #6699FF, #B899FF)`；滑块是 20px 白色圆点。控件本身 `height: 40px` 作为触摸热区，`touch-action: pan-y`。
 
 **存储**（`services/settings.ts`）：
