@@ -23,7 +23,7 @@
 
 三道防线：
 
-1. **GitHub 端**：本仓库已开启 Secret Scanning + Push Protection（含 `sk-` 类密钥），一旦有人提交疑似密钥会被直接拦下；
+1. **GitHub 端**：本仓库已开启 Secret Scanning + Push Protection，可拦截 GitHub token、AWS、OpenAI/Anthropic、Stripe 等常见格式。**但要注意：DeepSeek 自家的 key 格式属于 `isPublic=false` 的模式，公开仓库默认不扫描**（只在私有仓库 + GitHub Advanced Security 下生效），所以真正的防线是下面第 2 条；
 2. **本地端**：提交前跑 `npm run scan:secrets`，命中即报错并打码输出；
 3. **习惯端**：App 内导出的历史对话**不包含 API Key**，可以放心备份或分享。
 
