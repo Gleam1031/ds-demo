@@ -1,0 +1,751 @@
+diff --git a/src/app/App.tsx b/src/app/App.tsx
+index d204c0f..f189a3c 100644
+--- a/src/app/App.tsx
++++ b/src/app/App.tsx
+@@ -24,6 +24,7 @@ import { stopReadAloud } from '../services/speech/readAloud.js'
+ import { CollapsedSider } from '../components/sider/CollapsedSider.js'
+ import { closeMobileSider } from '../components/sider/mobileSiderState.js'
+ import { MobileSider, Sider } from '../components/sider/Sider.js'
++import { SessionSearch } from '../components/sider/SessionSearch.js'
+ import styles from './App.module.css'
+ 
+ export const App = () => {
+@@ -133,6 +134,7 @@ export const App = () => {
+         <SearchPanel />
+       </div>
+       <SettingsDialog />
++      <SessionSearch />
+       <Toast />
+     </>
+   )
+diff --git a/src/components/base/icons.tsx b/src/components/base/icons.tsx
+index 25f10ea..83c41c4 100644
+--- a/src/components/base/icons.tsx
++++ b/src/components/base/icons.tsx
+@@ -1,3 +1,12 @@
++export const IconPinOutline16 = () => (
++  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
++    <path
++      d="M9.35 1.1 14.9 6.65l-1.2 1.2-1.35-.45-2.6 2.6.35 2.2-1.2 1.2-2.45-2.45-3.75 3.75-1.05-1.05 3.75-3.75L1.95 7.45l1.2-1.2 2.2.35 2.6-2.6-.45-1.35 1.85-1.55Z"
++      fill="currentColor"
++    />
++  </svg>
++)
++
+ export const IconCheckOutline16 = () => (
+   <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+     <path
+diff --git a/src/components/sider/SessionItem.module.css b/src/components/sider/SessionItem.module.css
+index 6ccb2cf..86b90ce 100644
+--- a/src/components/sider/SessionItem.module.css
++++ b/src/components/sider/SessionItem.module.css
+@@ -39,6 +39,14 @@
+   line-height: 18px;
+ }
+ 
++/* 已置顶的会话在标题右侧显示一枚图钉 */
++.pinnedMark {
++  display: flex;
++  flex-shrink: 0;
++  margin-left: 4px;
++  opacity: 0.7;
++}
++
+ .action {
+   display: none;
+   flex-shrink: 0;
+diff --git a/src/components/sider/SessionItem.tsx b/src/components/sider/SessionItem.tsx
+index c50dd62..28c34d1 100644
+--- a/src/components/sider/SessionItem.tsx
++++ b/src/components/sider/SessionItem.tsx
+@@ -1,14 +1,20 @@
+ import clsx from 'clsx'
+-import { memo, useState } from 'react'
++import { memo, useRef, useState } from 'react'
+ import { useTranslate } from '../../i18n/index.js'
+-import { IconEditOutline16, IconEllipsisOutline16, IconTrashOutline16 } from '../base/icons.js'
++import { IconEditOutline16, IconEllipsisOutline16, IconPinOutline16, IconTrashOutline16 } from '../base/icons.js'
+ import { renameSession, selectSession } from '../../services/chat/store.js'
++import { togglePin, usePins } from '../../services/chat/pins.js'
+ import type { SessionSummary } from '../../services/chat/types.js'
+ import { IconButton } from '../base/IconButton.js'
+ import { Menu } from '../base/Menu.js'
+ import { closeMobileSider } from './mobileSiderState.js'
+ import styles from './SessionItem.module.css'
+ 
++/** 触屏长按多久打开会话菜单 */
++const LONG_PRESS_DELAY = 450
++/** 长按期间允许的抖动像素 */
++const LONG_PRESS_MOVE_TOLERANCE = 12
++
+ export const SessionItem = memo(function SessionItem({
+   session,
+   active,
+@@ -20,7 +26,38 @@ export const SessionItem = memo(function SessionItem({
+ }) {
+   const t = useTranslate()
+   const [editing, setEditing] = useState(false)
++  const pinned = usePins((state) => state.ids.includes(session.id))
+   const displayTitle = session.title || t('untitledChat')
++  /** 触屏上长按标题打开菜单（桌面端仍用右侧的「更多」按钮） */
++  const toggleMenuRef = useRef<(() => void) | null>(null)
++  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
++  const longPressed = useRef(false)
++  const pressOrigin = useRef<{ x: number; y: number } | null>(null)
++  const clearLongPress = () => {
++    if (longPressTimer.current !== null) {
++      clearTimeout(longPressTimer.current)
++      longPressTimer.current = null
++    }
++  }
++  const startPress = (x: number, y: number) => {
++    clearLongPress()
++    longPressed.current = false
++    pressOrigin.current = { x, y }
++    longPressTimer.current = setTimeout(() => {
++      longPressed.current = true
++      toggleMenuRef.current?.()
++    }, LONG_PRESS_DELAY)
++  }
++  /** 手指移动超过阈值才取消，避免轻微抖动导致长按失效 */
++  const moveWhilePressed = (x: number, y: number) => {
++    const origin = pressOrigin.current
++    if (!origin) {
++      return
++    }
++    if (Math.hypot(x - origin.x, y - origin.y) > LONG_PRESS_MOVE_TOLERANCE) {
++      clearLongPress()
++    }
++  }
+ 
+   if (editing) {
+     const finish = (title: string) => {
+@@ -51,14 +88,41 @@ export const SessionItem = memo(function SessionItem({
+     <div
+       className={clsx(styles.item, active && styles.active)}
+       onClick={() => {
++        // 长按已经打开菜单，抬起时不要再切换会话
++        if (longPressed.current) {
++          longPressed.current = false
++          return
++        }
+         selectSession(session.id)
+         closeMobileSider()
+       }}
++      onTouchStart={(event) => {
++        const touch = event.touches[0]
++        if (touch) startPress(touch.clientX, touch.clientY)
++      }}
++      onTouchMove={(event) => {
++        const touch = event.touches[0]
++        if (touch) moveWhilePressed(touch.clientX, touch.clientY)
++      }}
++      onTouchEnd={clearLongPress}
++      onTouchCancel={clearLongPress}
++      onContextMenu={(event) => event.preventDefault()}
+     >
+       <div className={styles.title}>{displayTitle}</div>
++      {pinned ? (
++        <span className={styles.pinnedMark} aria-hidden="true">
++          <IconPinOutline16 />
++        </span>
++      ) : null}
+       <div className={styles.action} onClick={(event) => event.stopPropagation()}>
+         <Menu
+           options={[
++            {
++              key: 'pin',
++              label: pinned ? t('sessionItemMenuUnpinOption') : t('sessionItemMenuPinOption'),
++              icon: <IconPinOutline16 />,
++              onSelect: () => togglePin(session.id),
++            },
+             {
+               key: 'rename',
+               label: t('sessionItemMenuRenameOption'),
+@@ -74,9 +138,12 @@ export const SessionItem = memo(function SessionItem({
+             },
+           ]}
+         >
+-          {({ toggle }) => (
+-            <IconButton icon={<IconEllipsisOutline16 />} aria-label={t('more')} onClick={toggle} />
+-          )}
++          {({ toggle }) => {
++            toggleMenuRef.current = toggle
++            return (
++              <IconButton icon={<IconEllipsisOutline16 />} aria-label={t('more')} onClick={toggle} />
++            )
++          }}
+         </Menu>
+       </div>
+     </div>
+diff --git a/src/components/sider/SessionSearch.module.css b/src/components/sider/SessionSearch.module.css
+new file mode 100644
+index 0000000..96eae8e
+--- /dev/null
++++ b/src/components/sider/SessionSearch.module.css
+@@ -0,0 +1,80 @@
++.main {
++  display: flex;
++  flex-direction: column;
++  gap: 6px;
++  min-height: 200px;
++}
++
++.input {
++  width: 100%;
++  box-sizing: border-box;
++  height: 40px;
++  padding: 0 12px;
++  border-radius: 10px;
++  border: 1px solid var(--dsw-alias-border-l2);
++  background: var(--dsw-alias-bg-base);
++  color: var(--dsw-alias-label-primary);
++  font-size: 14px;
++  outline: none;
++}
++
++.input:focus {
++  border-color: var(--dsw-alias-brand-primary);
++}
++
++.meta {
++  min-height: 16px;
++  font-size: 12px;
++  color: var(--dsw-alias-label-tertiary);
++}
++
++.list {
++  display: flex;
++  flex-direction: column;
++  gap: 2px;
++  max-height: 52vh;
++  overflow-y: auto;
++}
++
++.item {
++  display: flex;
++  flex-direction: column;
++  gap: 2px;
++  width: 100%;
++  padding: 8px 10px;
++  border: 0;
++  border-radius: 8px;
++  background: transparent;
++  color: inherit;
++  text-align: left;
++  cursor: pointer;
++  -webkit-tap-highlight-color: transparent;
++}
++
++.item:active,
++.item:hover {
++  background: var(--dsw-alias-interactive-bg-hover);
++}
++
++.title {
++  font-size: 13.5px;
++  color: var(--dsw-alias-label-primary);
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
++}
++
++.snippet {
++  font-size: 12px;
++  color: var(--dsw-alias-label-secondary);
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
++}
++
++.empty {
++  padding: 18px 0;
++  text-align: center;
++  font-size: 13px;
++  color: var(--dsw-alias-label-tertiary);
++}
+diff --git a/src/components/sider/SessionSearch.tsx b/src/components/sider/SessionSearch.tsx
+new file mode 100644
+index 0000000..cff9ba5
+--- /dev/null
++++ b/src/components/sider/SessionSearch.tsx
+@@ -0,0 +1,96 @@
++import { useEffect, useState } from 'react'
++import { useTranslate } from '../../i18n/index.js'
++import { searchSessions, type SessionSearchHit } from '../../services/chat/search.js'
++import { selectSession } from '../../services/chat/store.js'
++import { Modal } from '../base/Modal.js'
++import { closeMobileSider } from './mobileSiderState.js'
++import { closeSessionSearch, useSessionSearch } from './sessionSearchState.js'
++import styles from './SessionSearch.module.css'
++
++/** 输入停顿后再查，避免每次按键都扫一遍本机会话库 */
++const SEARCH_DELAY = 180
++
++const SessionSearchDialog = () => {
++  const t = useTranslate()
++  const [query, setQuery] = useState('')
++  const [hits, setHits] = useState<SessionSearchHit[]>([])
++  const [searching, setSearching] = useState(false)
++
++  useEffect(() => {
++    const needle = query.trim()
++    if (!needle) {
++      setHits([])
++      setSearching(false)
++      return
++    }
++    setSearching(true)
++    let cancelled = false
++    const timer = setTimeout(() => {
++      void searchSessions(needle)
++        .then((next) => {
++          if (!cancelled) {
++            setHits(next)
++            setSearching(false)
++          }
++        })
++        .catch(() => {
++          if (!cancelled) {
++            setHits([])
++            setSearching(false)
++          }
++        })
++    }, SEARCH_DELAY)
++    return () => {
++      cancelled = true
++      clearTimeout(timer)
++    }
++  }, [query])
++
++  const openSession = (id: string) => {
++    selectSession(id)
++    closeSessionSearch()
++    closeMobileSider()
++  }
++
++  return (
++    <Modal title={t('searchSessions')} closable onClose={closeSessionSearch} mainClassName={styles.main}>
++      <input
++        className={styles.input}
++        autoFocus
++        value={query}
++        placeholder={t('searchPlaceholder')}
++        onChange={(event) => setQuery(event.target.value)}
++        aria-label={t('searchPlaceholder')}
++      />
++      <div className={styles.meta} role="status" aria-live="polite">
++        {searching
++          ? t('searchSearching')
++          : query.trim()
++            ? t('searchResultCount', { count: hits.length })
++            : ''}
++      </div>
++      <div className={styles.list}>
++        {hits.map(({ session, snippet }) => (
++          <button
++            key={session.id}
++            type="button"
++            className={styles.item}
++            onClick={() => openSession(session.id)}
++          >
++            <span className={styles.title}>{session.title || t('untitledChat')}</span>
++            {snippet ? <span className={styles.snippet}>{snippet}</span> : null}
++          </button>
++        ))}
++        {!searching && query.trim() && hits.length === 0 ? (
++          <div className={styles.empty}>{t('searchNoResult')}</div>
++        ) : null}
++      </div>
++    </Modal>
++  )
++}
++
++/** 挂在应用根部：侧边栏收起/展开不影响已打开的搜索弹窗 */
++export const SessionSearch = () => {
++  const open = useSessionSearch((state) => state.open)
++  return open ? <SessionSearchDialog /> : null
++}
+diff --git a/src/components/sider/Sider.module.css b/src/components/sider/Sider.module.css
+index 053be7e..a3979e8 100644
+--- a/src/components/sider/Sider.module.css
++++ b/src/components/sider/Sider.module.css
+@@ -79,6 +79,34 @@
+   margin-right: 6px;
+ }
+ 
++/* 搜索聊天记录：与「开启新对话」同高同宽，用次要样式区分 */
++.searchSessions {
++  position: relative;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  flex-shrink: 0;
++  box-sizing: border-box;
++  width: 100%;
++  height: 40px;
++  margin-bottom: 8px;
++  padding: 0 16px;
++  border-radius: 100px;
++  border: 1px solid var(--dsw-alias-border-l2);
++  background: transparent;
++  color: var(--dsw-alias-label-primary);
++  font: inherit;
++  font-size: 14px;
++  font-weight: 500;
++  cursor: pointer;
++  user-select: none;
++  transition: background-color 0.15s ease;
++}
++
++.searchSessions:hover {
++  background: var(--dsw-alias-interactive-bg-hover);
++}
++
+ .listWrap {
+   position: relative;
+   flex: 1;
+diff --git a/src/components/sider/Sider.module.css.d.ts b/src/components/sider/Sider.module.css.d.ts
+index 9a5bde3..061a097 100644
+--- a/src/components/sider/Sider.module.css.d.ts
++++ b/src/components/sider/Sider.module.css.d.ts
+@@ -4,6 +4,7 @@ declare const styles: {
+   readonly "appName": string;
+   readonly "newChat": string;
+   readonly "newChatIcon": string;
++  readonly "searchSessions": string;
+   readonly "listWrap": string;
+   readonly "list": string;
+   readonly "section": string;
+diff --git a/src/components/sider/Sider.tsx b/src/components/sider/Sider.tsx
+index 2f3cf56..31beb55 100644
+--- a/src/components/sider/Sider.tsx
++++ b/src/components/sider/Sider.tsx
+@@ -1,9 +1,10 @@
+ import clsx from 'clsx'
+ import { useEffect, useMemo, useState } from 'react'
+ import { useTranslate } from '../../i18n/index.js'
+-import { IconPanelLeftOutline16, IconSettingsOutline16, NewChatIcon } from '../base/icons.js'
++import { IconPanelLeftOutline16, IconSearchOutline16, IconSettingsOutline16, NewChatIcon } from '../base/icons.js'
+ import { setSiderCollapsed } from '../../services/settings.js'
+ import { groupSessions } from '../../services/chat/sessionGroups.js'
++import { splitPinned, usePins } from '../../services/chat/pins.js'
+ import { newChat, removeSession, useChatStore } from '../../services/chat/store.js'
+ import type { SessionSummary } from '../../services/chat/types.js'
+ import { Button } from '../base/Button.js'
+@@ -12,6 +13,7 @@ import { Modal } from '../base/Modal.js'
+ import { showToast } from '../base/toastState.js'
+ import { openSettings } from '../settings/settingsDialogState.js'
+ import { closeMobileSider, useMobileSider } from './mobileSiderState.js'
++import { openSessionSearch } from './sessionSearchState.js'
+ import { SessionItem } from './SessionItem.js'
+ import styles from './Sider.module.css'
+ 
+@@ -21,7 +23,17 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
+   const sessions = useChatStore((state) => state.sessions)
+   const activeId = useChatStore((state) => state.activeId)
+   const [now, setNow] = useState(Date.now)
+-  const groups = useMemo(() => groupSessions(sessions, now, t), [sessions, now, t])
++  const pinnedIds = usePins((state) => state.ids)
++  const groups = useMemo(() => {
++    const { pinned, others } = splitPinned(sessions, pinnedIds)
++    const base = groupSessions(others, now, t)
++    return pinned.length === 0
++      ? base
++      : [
++          { key: 'pinned', label: t('sessionHistoryTimelineLabelPinned'), sessions: pinned },
++          ...base,
++        ]
++  }, [sessions, pinnedIds, now, t])
+   const [deleting, setDeleting] = useState<SessionSummary | null>(null)
+   const [deletePending, setDeletePending] = useState(false)
+ 
+@@ -61,6 +73,19 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
+           onClick={() => (mobile ? closeMobileSider() : setSiderCollapsed(true))}
+         />
+       </div>
++      <button
++        type="button"
++        className={styles.searchSessions}
++        onClick={() => {
++          openSessionSearch()
++          closeMobileSider()
++        }}
++      >
++        <span className={styles.newChatIcon}>
++          <IconSearchOutline16 />
++        </span>
++        {t('searchSessions')}
++      </button>
+       <button
+         type="button"
+         className={styles.newChat}
+diff --git a/src/components/sider/sessionSearchState.ts b/src/components/sider/sessionSearchState.ts
+new file mode 100644
+index 0000000..c3b4cc5
+--- /dev/null
++++ b/src/components/sider/sessionSearchState.ts
+@@ -0,0 +1,10 @@
++import { create } from 'zustand'
++
++/** 聊天记录搜索弹窗的开关；入口在侧边栏「开启新对话」上方 */
++type SessionSearchState = { open: boolean }
++
++export const useSessionSearch = create<SessionSearchState>(() => ({ open: false }))
++
++export const openSessionSearch = () => useSessionSearch.setState({ open: true })
++
++export const closeSessionSearch = () => useSessionSearch.setState({ open: false })
+diff --git a/src/i18n/en.ts b/src/i18n/en.ts
+index 2d49027..d222070 100644
+--- a/src/i18n/en.ts
++++ b/src/i18n/en.ts
+@@ -6,6 +6,16 @@ export const en = {
+   expandSiderbarButton: 'Open sidebar',
+   collapseSiderbarButton: 'Close sidebar',
+   newChat: 'New chat',
++  searchSessions: 'Search chats',
++  searchPlaceholder: 'Search titles or messages',
++  searchSearching: 'Searching…',
++  searchNoResult: 'No matching chats',
++  searchResultCount: '{count} result(s)',
++  sessionItemMenuPinOption: 'Pin',
++  sessionItemMenuUnpinOption: 'Unpin',
++  sessionHistoryTimelineLabelPinned: 'Pinned',
++  documentBlocksOmitted:
++    'Omitted {count} older attachment(s): a request can reference at most 20 documents',
+   untitledChat: 'New chat',
+   sessionLoading: 'Loading chats...',
+   sessionListLoadFailed: 'Unable to load the chat list. Please try again.',
+diff --git a/src/i18n/zh.ts b/src/i18n/zh.ts
+index d99f058..eedef89 100644
+--- a/src/i18n/zh.ts
++++ b/src/i18n/zh.ts
+@@ -4,6 +4,15 @@ export const zh = {
+   expandSiderbarButton: '打开边栏',
+   collapseSiderbarButton: '收起边栏',
+   newChat: '开启新对话',
++  searchSessions: '搜索聊天记录',
++  searchPlaceholder: '搜索标题或消息内容',
++  searchSearching: '搜索中…',
++  searchNoResult: '没有匹配的对话',
++  searchResultCount: '共 {count} 条结果',
++  sessionItemMenuPinOption: '置顶',
++  sessionItemMenuUnpinOption: '取消置顶',
++  sessionHistoryTimelineLabelPinned: '置顶',
++  documentBlocksOmitted: '已省略 {count} 个较早的附件：单次请求最多引用 20 个文档',
+   untitledChat: '新对话',
+   sessionLoading: '正在加载对话...',
+   sessionListLoadFailed: '对话列表加载失败，请重试',
+diff --git a/src/services/chat/db.ts b/src/services/chat/db.ts
+index a1f58ea..eecdef8 100644
+--- a/src/services/chat/db.ts
++++ b/src/services/chat/db.ts
+@@ -81,6 +81,9 @@ export const loadSessionSummaries = async (): Promise<SessionSummary[]> =>
+ export const loadSession = async (id: string): Promise<Session | undefined> =>
+   (await getDB()).get('sessions', id)
+ 
++/** 本地搜索用：只读取全部会话（含消息全文），不触碰界面状态 */
++export const loadAllSessions = async (): Promise<Session[]> => (await getDB()).getAll('sessions')
++
+ export const saveSession = async (session: Session, files: StoredFile[] = []): Promise<void> => {
+   const summary = storedSummary(session)
+   const tx = (await getDB()).transaction(['sessions', 'sessionSummaries', 'files'], 'readwrite')
+diff --git a/src/services/chat/pins.ts b/src/services/chat/pins.ts
+new file mode 100644
+index 0000000..02819d7
+--- /dev/null
++++ b/src/services/chat/pins.ts
+@@ -0,0 +1,49 @@
++import { create } from 'zustand'
++
++/**
++ * 会话置顶：只存 id 列表，与会话数据分开保存在本机 localStorage。
++ * 置顶不改变会话本身的 updatedAt，删除会话时残留的 id 会在渲染时被过滤掉。
++ */
++const STORAGE_KEY = 'chat-demo:pinned-sessions'
++
++const readPinned = (): string[] => {
++  try {
++    const raw = localStorage.getItem(STORAGE_KEY)
++    const parsed: unknown = raw ? JSON.parse(raw) : null
++    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : []
++  } catch {
++    return []
++  }
++}
++
++const writePinned = (ids: string[]) => {
++  try {
++    localStorage.setItem(STORAGE_KEY, JSON.stringify(ids))
++  } catch {
++    // 隐私模式等场景下忽略；置顶只在当前会话生效
++  }
++}
++
++type PinsState = { ids: string[] }
++
++export const usePins = create<PinsState>(() => ({ ids: readPinned() }))
++
++export const isPinned = (id: string) => usePins.getState().ids.includes(id)
++
++/** 置顶 / 取消置顶；新置顶的排在最前 */
++export const togglePin = (id: string) => {
++  const ids = usePins.getState().ids
++  const next = ids.includes(id) ? ids.filter((item) => item !== id) : [id, ...ids]
++  writePinned(next)
++  usePins.setState({ ids: next })
++}
++
++/** 按置顶顺序排好的置顶会话；others 保持原有顺序 */
++export const splitPinned = <T extends { id: string }>(sessions: T[], ids = usePins.getState().ids) => {
++  const byId = new Map(sessions.map((session) => [session.id, session]))
++  const pinned = ids
++    .map((id) => byId.get(id))
++    .filter((session): session is T => session !== undefined)
++  const pinnedSet = new Set(pinned.map((session) => session.id))
++  return { pinned, others: sessions.filter((session) => !pinnedSet.has(session.id)) }
++}
+diff --git a/src/services/chat/reply.ts b/src/services/chat/reply.ts
+index 85322eb..042a457 100644
+--- a/src/services/chat/reply.ts
++++ b/src/services/chat/reply.ts
+@@ -6,6 +6,7 @@ import type {
+   OutputBlockStart,
+   TextBlockParam,
+ } from '../api/types.js'
++import { showToast } from '../../components/base/toastState.js'
+ import type {
+   AssistantMessage,
+   FileAttachment,
+@@ -296,6 +297,43 @@ export const getContextRounds = (history: Message[]): [UserMessage, AssistantMes
+   return rounds
+ }
+ 
++/**
++ * 服务端限制：一次请求最多 20 个 document 块（同一 file_id 被重复引用也各计一次）。
++ * 历史提问的附件每次请求都会重发，所以必须按整个请求算，不能只看本轮。
++ */
++const MAX_DOCUMENT_BLOCKS = 20
++/** 超出上限的 document 块换成这句说明，让模型知道有附件被省略 */
++const DOCUMENT_OMITTED_TEXT = '[附件已省略：单次请求最多引用 20 个文档]'
++
++/**
++ * 只保留最新的 MAX_DOCUMENT_BLOCKS 个 document 块，更早的替换为文字说明。
++ * messages 末尾是本轮提问，因此优先保留本轮附件。返回被省略的块数，供界面提示。
++ */
++const pruneDocumentBlocks = (messages: MessageParam[]): { messages: MessageParam[]; omitted: number } => {
++  let budget = MAX_DOCUMENT_BLOCKS
++  let omitted = 0
++  for (let i = messages.length - 1; i >= 0; i--) {
++    const message = messages[i]
++    if (message.role !== 'user' || typeof message.content === 'string') {
++      continue
++    }
++    const blocks = message.content
++    for (let j = blocks.length - 1; j >= 0; j--) {
++      const block = blocks[j]
++      if (block.type !== 'document') {
++        continue
++      }
++      if (budget > 0) {
++        budget -= 1
++        continue
++      }
++      blocks[j] = { type: 'text', text: DOCUMENT_OMITTED_TEXT }
++      omitted += 1
++    }
++  }
++  return { messages, omitted }
++}
++
+ /**
+  * 把会话转成请求的 messages：只保留「提问 + 有回答的回复」成对的轮次，最后接上本轮提问。
+  * 失败或没有回答的轮次不进上下文。续写时末尾再带上本轮 assistant。
+@@ -339,7 +377,12 @@ export const toRequestMessages = (
+       messages.push(assistant)
+     }
+   }
+-  return messages
++  const pruned = pruneDocumentBlocks(messages)
++  if (pruned.omitted > 0) {
++    // 让用户知道有较早的附件没有随本轮请求发出，避免误以为模型漏读
++    showToast({ key: 'documentBlocksOmitted', params: { count: pruned.omitted } })
++  }
++  return pruned.messages
+ }
+ 
+ /** 思考用时（秒），至少 1 秒 */
+diff --git a/src/services/chat/search.ts b/src/services/chat/search.ts
+new file mode 100644
+index 0000000..b495d9c
+--- /dev/null
++++ b/src/services/chat/search.ts
+@@ -0,0 +1,67 @@
++import { loadAllSessions } from './db.js'
++import { toSessionSummary, type Session, type SessionSummary } from './types.js'
++
++/** 一条搜索结果：会话摘要 + 命中位置附近的一段原文（标题命中时没有片段） */
++export type SessionSearchHit = {
++  session: SessionSummary
++  snippet?: string
++}
++
++/** 片段前后各保留的字符数 */
++const SNIPPET_RADIUS = 36
++
++/** 把会话里可搜索的文字拼起来：用户提问正文 + 回答的文本块（不含思考、工具结果） */
++const sessionText = (session: Session): string => {
++  const parts: string[] = []
++  for (const message of session.messages) {
++    if (message.role === 'user') {
++      if (message.content.trim()) {
++        parts.push(message.content)
++      }
++      continue
++    }
++    for (const block of message.blocks) {
++      if (block.type === 'text' && block.text.trim()) {
++        parts.push(block.text)
++      }
++    }
++  }
++  return parts.join('\n')
++}
++
++const makeSnippet = (text: string, index: number, length: number): string => {
++  const start = Math.max(0, index - SNIPPET_RADIUS)
++  const end = Math.min(text.length, index + length + SNIPPET_RADIUS)
++  const body = text.slice(start, end).replace(/\s+/g, ' ').trim()
++  return `${start > 0 ? '…' : ''}${body}${end < text.length ? '…' : ''}`
++}
++
++/**
++ * 本地全文搜索：直接读本机会话库，按标题和消息正文匹配，不区分大小写。
++ * 结果按最近更新排序；`limit` 限制返回条数，避免长列表卡顿。
++ */
++export const searchSessions = async (query: string, limit = 30): Promise<SessionSearchHit[]> => {
++  const needle = query.trim().toLowerCase()
++  if (!needle) {
++    return []
++  }
++
++  const sessions = await loadAllSessions()
++  const hits: SessionSearchHit[] = []
++
++  for (const session of sessions) {
++    const title = session.title ?? ''
++    const text = sessionText(session)
++    const inTitle = title.toLowerCase().includes(needle)
++    const textIndex = text.toLowerCase().indexOf(needle)
++    if (!inTitle && textIndex < 0) {
++      continue
++    }
++    hits.push({
++      session: toSessionSummary(session),
++      snippet: textIndex >= 0 ? makeSnippet(text, textIndex, needle.length) : undefined,
++    })
++  }
++
++  return hits.sort((a, b) => b.session.updatedAt - a.session.updatedAt).slice(0, limit)
++}

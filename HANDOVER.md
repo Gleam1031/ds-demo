@@ -80,7 +80,7 @@ deepseek-app/
 | Gradle | 8.14.3（wrapper 已就绪，发行包已植入缓存） |
 | 真机 | `10AF5B2FFY002LY`（vivo V2444A，720×1608 @320dpi → CSS 视口 360×804），WebView 126.0.6478.71 |
 | 手机上并存的两个包 | `com.dsdemo.shell`（新版，2026-11-20 装）＋ `com.deepseek.shell`（**旧版，用户要求保留，未覆盖**） |
-| chat-demo 工作区 | **有一处受控修改**：`src/services/chat/reply.ts`（document 块上限修复），见 `patches/0001-document-block-limit.patch` 与 5.5 节 |
+| chat-demo 工作区 | **有一组受控修改**（11 个文件改造 + 5 个新文件），见 `patches/0001-chat-demo-customizations.patch` 与 5.5/5.6 节 |
 
 > 注意：旧包 `com.deepseek.shell` 仍叫 "DeepSeek"，是历史产物。用户明确要求**不要覆盖**它（里面有他的 API Key 与聊天记录）。
 
@@ -141,6 +141,16 @@ messages: Too many documents: max 20 document blocks per request, got 27
 > 图片块（`image`）不受此限，官方限单请求 600 张，所以**只裁 document，不裁 image**。
 
 **维护**：`node scripts/apply-chat-demo-patches.mjs`（幂等）。升级 chat-demo 后先跑它；若补丁因上游改动无法应用，脚本会报错退出而不是静默跳过。
+
+### 5.6 另外三处客户端增强（同一补丁内）
+
+| 功能 | 关键实现 |
+|---|---|
+| **附件省略提示** | `reply.ts` 的 `pruneDocumentBlocks` 返回被省略数量，`toRequestMessages` 触发 `showToast({ key: 'documentBlocksOmitted', params })`（复用 chat-demo 自带 Toast）。文案键 zh/en 都加 |
+| **聊天记录搜索** | 侧边栏「开启新对话」上方按钮（`styles.searchSessions`，与 newChat 同为 40px 高、100% 宽）；弹窗 `SessionSearch.tsx` + 状态 `sessionSearchState.ts`；查询走 `services/chat/search.ts`：直接读 IndexedDB 的 `sessions`（`db.ts` 新导出 `loadAllSessions`），匹配标题与消息正文（用户正文 + 回答文本块），片段带 `…` 截断，180ms 防抖 |
+| **对话置顶** | `services/chat/pins.ts`：置顶 id 存 `localStorage['chat-demo:pinned-sessions']`；`splitPinned()` 把置顶项提到最前，`Sider` 渲染「置顶」分区；`SessionItem` 菜单加「置顶/取消置顶」并显示图钉；**触屏支持长按标题**（450ms，位移 >12px 才取消，避免轻微抖动导致失效），长按后抬起不再切换会话 |
+
+> 搜索弹窗挂在 `App.tsx` 根部，不随侧边栏抽屉关闭而卸载。
 
 ---
 
@@ -281,7 +291,7 @@ adb -s 10AF5B2FFY002LY install -r "…\app-debug.apk"
 
 ## 12. 不要做的事（硬约束）
 
-1. ⚠️ **不要随手改 `chat-demo/`**。确有必要修上游缺陷时，必须走 `patches/*.patch` + `scripts/apply-chat-demo-patches.mjs`，并在本节/5.5 节记录原因。目前只有一处：`0001-document-block-limit.patch`。构建脚本的 POSIX 写法**仍不许改**，用第 6 节的等价命令绕过。
+1. ⚠️ **不要随手改 `chat-demo/`**。确有必要修上游缺陷/加功能时，必须走 `patches/*.patch` + `scripts/apply-chat-demo-patches.mjs`，并在本节/5.5/5.6 节记录原因。目前只有一个合并补丁 `0001-chat-demo-customizations.patch`（含 document 上限修复 + 搜索 + 置顶 + 省略提示）。构建脚本的 POSIX 写法**仍不许改**，用第 6 节的等价命令绕过。
 2. ❌ 不要在 `capacitor.config.json` 里加 `server.url`
 3. ❌ 不要卸载或覆盖手机上的旧包 `com.deepseek.shell`
 4. ❌ 不要删除 `~\.gradle\wrapper\dists\gradle-8.14.3-all\…`（删了必构建失败，见 7.1）
