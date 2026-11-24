@@ -119,12 +119,12 @@ index 7a66a71..404b2f3 100644
              tone="primary"
 diff --git a/src/components/settings/PersonalizationPanel.tsx b/src/components/settings/PersonalizationPanel.tsx
 new file mode 100644
-index 0000000..05fd3be
+index 0000000..55c7385
 --- /dev/null
 +++ b/src/components/settings/PersonalizationPanel.tsx
-@@ -0,0 +1,119 @@
+@@ -0,0 +1,142 @@
 +import clsx from 'clsx'
-+import { useLayoutEffect, useRef } from 'react'
++import { useLayoutEffect, useRef, useState } from 'react'
 +import { useTranslate } from '../../i18n/index.js'
 +import {
 +  DEFAULT_THINKING_LEVEL,
@@ -134,6 +134,7 @@ index 0000000..05fd3be
 +  THINKING_BUDGETS,
 +  useSettings,
 +} from '../../services/settings.js'
++import { Button } from '../base/Button.js'
 +import { IconChevronRightOutline14 } from '../base/icons.js'
 +import { showToast } from '../base/toastState.js'
 +import styles from './Settings.module.css'
@@ -143,16 +144,21 @@ index 0000000..05fd3be
 +
 +/**
 + * 个性化页：设置弹窗内的子页面。
-+ * 第一板块：自定义系统提示词 —— 宽度固定整行，高度随输入内容自动增长（一行起）；
-+ * 第二板块：思考强度挡位（映射 thinking.budget_tokens）；
-+ * 底部：恢复默认设置。
++ * 编辑走草稿态——改动只有点「保存修改设置」才写入设置，返回则丢弃；
++ * 「恢复默认设置」直接恢复并保存（并提示），符合"恢复"这个动作的直觉。
 + */
 +export const PersonalizationPanel = ({ onBack }: { onBack: () => void }) => {
 +  const t = useTranslate()
 +  const systemPrompt = useSettings((state) => state.systemPrompt)
 +  const thinkingLevel = useSettings((state) => state.thinkingLevel)
-+  const budget = THINKING_BUDGETS[thinkingLevel] ?? THINKING_BUDGETS[DEFAULT_THINKING_LEVEL]
 +  const placeholder = t('personalizationSystemPromptPlaceholder')
++
++  // 草稿：面板内的编辑都先落在这里
++  const [draftPrompt, setDraftPrompt] = useState(systemPrompt)
++  const [draftLevel, setDraftLevel] = useState(thinkingLevel)
++  const dirty = draftPrompt !== systemPrompt || draftLevel !== thinkingLevel
++
++  const budget = THINKING_BUDGETS[draftLevel] ?? THINKING_BUDGETS[DEFAULT_THINKING_LEVEL]
 +  const levelLabels = [
 +    t('personalizationLevel1'),
 +    t('personalizationLevel2'),
@@ -171,7 +177,20 @@ index 0000000..05fd3be
 +    }
 +    textarea.style.height = 'auto'
 +    textarea.style.height = `${Math.max(TEXTAREA_MIN_HEIGHT, textarea.scrollHeight)}px`
-+  }, [systemPrompt])
++  }, [draftPrompt])
++
++  const save = () => {
++    setSystemPrompt(draftPrompt)
++    setThinkingLevel(draftLevel)
++    showToast({ key: 'personalizationSaved' })
++  }
++
++  const restoreDefaults = () => {
++    resetPersonalization()
++    setDraftPrompt('')
++    setDraftLevel(DEFAULT_THINKING_LEVEL)
++    showToast({ key: 'personalizationResetDone' })
++  }
 +
 +  return (
 +    <div className={styles.personalization}>
@@ -187,11 +206,11 @@ index 0000000..05fd3be
 +        <textarea
 +          ref={textareaRef}
 +          className={styles.personalizationTextarea}
-+          value={systemPrompt}
++          value={draftPrompt}
 +          rows={1}
 +          placeholder={placeholder}
 +          aria-label={t('personalizationSystemPrompt')}
-+          onChange={(event) => setSystemPrompt(event.target.value)}
++          onChange={(event) => setDraftPrompt(event.target.value)}
 +        />
 +        <div className={styles.personalizationHint}>{t('personalizationSystemPromptHint')}</div>
 +      </section>
@@ -200,7 +219,7 @@ index 0000000..05fd3be
 +        <div className={styles.personalizationTitleRow}>
 +          <div className={styles.personalizationTitle}>{t('personalizationThinking')}</div>
 +          <div className={styles.personalizationValue}>
-+            {levelLabels[thinkingLevel]} · {budget}
++            {levelLabels[draftLevel]} · {budget}
 +          </div>
 +        </div>
 +        <input
@@ -209,9 +228,9 @@ index 0000000..05fd3be
 +          min={0}
 +          max={THINKING_BUDGETS.length - 1}
 +          step={1}
-+          value={thinkingLevel}
++          value={draftLevel}
 +          aria-label={t('personalizationThinking')}
-+          onChange={(event) => setThinkingLevel(Number(event.target.value))}
++          onChange={(event) => setDraftLevel(Number(event.target.value))}
 +        />
 +        <div className={styles.personalizationTicks}>
 +          {levelLabels.map((label, index) => (
@@ -219,7 +238,7 @@ index 0000000..05fd3be
 +              key={label}
 +              className={clsx(
 +                styles.personalizationTick,
-+                index === thinkingLevel && styles.personalizationTickActive
++                index === draftLevel && styles.personalizationTickActive
 +              )}
 +            >
 +              {label}
@@ -229,24 +248,28 @@ index 0000000..05fd3be
 +        <div className={styles.personalizationHint}>{t('personalizationThinkingHint')}</div>
 +      </section>
 +
-+      <button
-+        type="button"
-+        className={styles.personalizationReset}
-+        onClick={() => {
-+          resetPersonalization()
-+          showToast({ key: 'personalizationResetDone' })
-+        }}
-+      >
-+        {t('personalizationReset')}
-+      </button>
++      <div className={styles.personalizationActions}>
++        <Button variant="outlined" size="m" className={styles.personalizationAction} onClick={restoreDefaults}>
++          {t('personalizationReset')}
++        </Button>
++        <Button
++          variant="primary"
++          size="m"
++          className={styles.personalizationAction}
++          disabled={!dirty}
++          onClick={save}
++        >
++          {t('personalizationSave')}
++        </Button>
++      </div>
 +    </div>
 +  )
 +}
 diff --git a/src/components/settings/Settings.module.css b/src/components/settings/Settings.module.css
-index f54e437..8a67336 100644
+index f54e437..ea3b22b 100644
 --- a/src/components/settings/Settings.module.css
 +++ b/src/components/settings/Settings.module.css
-@@ -440,3 +440,206 @@
+@@ -440,3 +440,196 @@
      max-width: 100%;
    }
  }
@@ -434,30 +457,21 @@ index f54e437..8a67336 100644
 +  font-weight: 500;
 +}
 +
-+.personalizationReset {
-+  align-self: flex-start;
-+  min-width: 132px;
-+  height: 36px;
-+  padding: 0 16px;
-+  /* 边框由主题文字色派生：浅色=黑、深色=白，自动跟随主题 */
-+  border: 1px solid var(--dsw-alias-label-tertiary);
-+  border-color: color-mix(in srgb, var(--dsw-alias-label-primary) 42%, transparent);
-+  border-radius: 18px;
-+  background: transparent;
-+  color: var(--dsw-alias-label-primary);
-+  font-size: 13.5px;
-+  cursor: pointer;
-+  -webkit-tap-highlight-color: transparent;
++/* 底部两个按钮等宽并排 */
++.personalizationActions {
++  display: flex;
++  gap: 10px;
 +}
 +
-+.personalizationReset:active {
-+  background: var(--dsw-alias-interactive-bg-hover);
++.personalizationAction {
++  flex: 1 1 0;
 +}
+\ No newline at end of file
 diff --git a/src/components/settings/Settings.module.css.d.ts b/src/components/settings/Settings.module.css.d.ts
-index 860646a..5dc619e 100644
+index 860646a..446692f 100644
 --- a/src/components/settings/Settings.module.css.d.ts
 +++ b/src/components/settings/Settings.module.css.d.ts
-@@ -33,6 +33,24 @@ declare const styles: {
+@@ -33,6 +33,25 @@ declare const styles: {
    readonly "importConfirmText": string;
    readonly "deleteConfirm": string;
    readonly "deleteActions": string;
@@ -476,8 +490,9 @@ index 860646a..5dc619e 100644
 +  readonly "personalizationTicks": string;
 +  readonly "personalizationTick": string;
 +  readonly "personalizationTickActive": string;
-+  readonly "personalizationReset": string;
 +  readonly "personalizationArrow": string;
++  readonly "personalizationActions": string;
++  readonly "personalizationAction": string;
  };
  export = styles;
  
@@ -1045,7 +1060,7 @@ index 0000000..c3b4cc5
 +
 +export const closeSessionSearch = () => useSessionSearch.setState({ open: false })
 diff --git a/src/i18n/en.ts b/src/i18n/en.ts
-index 2d49027..8dc82f4 100644
+index 2d49027..69b48f8 100644
 --- a/src/i18n/en.ts
 +++ b/src/i18n/en.ts
 @@ -6,6 +6,16 @@ export const en = {
@@ -1065,7 +1080,7 @@ index 2d49027..8dc82f4 100644
    untitledChat: 'New chat',
    sessionLoading: 'Loading chats...',
    sessionListLoadFailed: 'Unable to load the chat list. Please try again.',
-@@ -97,6 +107,21 @@ export const en = {
+@@ -97,6 +107,23 @@ export const en = {
    settingsLocationProvince: 'Select province/region',
    settingsLocationCity: 'Select city',
    settingsLocationRegion: 'Select country or region',
@@ -1083,11 +1098,13 @@ index 2d49027..8dc82f4 100644
 +  personalizationLevel4: 'High',
 +  personalizationLevel5: 'Max',
 +  personalizationReset: 'Restore defaults',
++  personalizationSave: 'Save changes',
++  personalizationSaved: 'Changes saved',
 +  personalizationResetDone: 'Defaults restored',
    settingDialogAsideGeneralOptionLabel: 'General',
    settingDialogAsideDataOptionLabel: 'Data',
    avatarMenuSettingsDialogThemeItemLabel: 'Theme',
-@@ -144,6 +169,7 @@ export const en = {
+@@ -144,6 +171,7 @@ export const en = {
    deactivatedSearchTooltip: 'Search the web when necessary',
    search: 'Search',
    uploadFile: 'Upload files',
@@ -1096,7 +1113,7 @@ index 2d49027..8dc82f4 100644
    uploadMaxMBSize: 'File exceeds the size limit ({size} MB). Please adjust and try again.',
    uploadMaxFiles: 'You can upload up to {count} files',
 diff --git a/src/i18n/zh.ts b/src/i18n/zh.ts
-index d99f058..b7fe259 100644
+index d99f058..b2aa13c 100644
 --- a/src/i18n/zh.ts
 +++ b/src/i18n/zh.ts
 @@ -4,6 +4,15 @@ export const zh = {
@@ -1115,7 +1132,7 @@ index d99f058..b7fe259 100644
    untitledChat: '新对话',
    sessionLoading: '正在加载对话...',
    sessionListLoadFailed: '对话列表加载失败，请重试',
-@@ -92,6 +101,21 @@ export const zh = {
+@@ -92,6 +101,23 @@ export const zh = {
    settingsLocationProvince: '请选择省份/地区',
    settingsLocationCity: '请选择市',
    settingsLocationRegion: '请选择国家或地区',
@@ -1133,11 +1150,13 @@ index d99f058..b7fe259 100644
 +  personalizationLevel4: '较高',
 +  personalizationLevel5: '最高',
 +  personalizationReset: '恢复默认设置',
++  personalizationSave: '保存修改设置',
++  personalizationSaved: '已保存修改',
 +  personalizationResetDone: '已恢复默认设置',
    settingDialogAsideGeneralOptionLabel: '通用设置',
    settingDialogAsideDataOptionLabel: '数据管理',
    avatarMenuSettingsDialogThemeItemLabel: '主题',
-@@ -136,6 +160,7 @@ export const zh = {
+@@ -136,6 +162,7 @@ export const zh = {
    deactivatedSearchTooltip: '按需搜索网页',
    search: '智能搜索',
    uploadFile: '上传文件',
