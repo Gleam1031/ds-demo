@@ -239,6 +239,35 @@ if (target?.closest('input[type="range"], [data-touch-drag]')) return
 
 A/B 实测：加回无条件 `preventDefault` 后滑杆拖不动（值停在起点），移除后正常。真机 `adb shell input swipe` 左→右 2→3、右→左 3→0，取值与 localStorage 同步变化。**以后再加自定义滑杆/可拖动控件，记得别被这段逻辑挡住。**
 
+### 5.9 背景（启动 / 主页 / 会话）
+
+**文件与开关分流存储**：
+
+| 内容 | 位置 |
+|---|---|
+| 背景文件（Blob） | 独立 IndexedDB `chat-demo-wallpapers`，store `wallpapers`，key = `launch` / `home` / `chat` |
+| 开关、强度与元数据 | localStorage `chat-demo:wallpapers`：`{ master, items: { launch/home/chat: { on, opacity, meta: {mime,name} } } }`（`opacity` 0–100） |
+
+**代码**：`services/wallpapers.ts`（存储 + `useWallpaperUrls`）、`components/wallpaper/WallpaperLayers.tsx`（渲染层）、`components/base/Switch.tsx`（开关）、`PersonalizationPanel` 的「壁纸」区。
+
+**可见性规则**（用户 2026-11-25 调整后的最终版）：
+
+- **会话页：只显示「会话背景」**，不显示主页背景；
+- **主页（无会话）：会话背景在下 + 主页背景在上**，两层都在正文之下；
+- 启动背景：`z-index: 3000` 覆盖层，淡出后卸载（约 1.4s）。
+
+**层级**（改错会盖住正文）：背景层 `position: fixed; z-index: -2`，主页背景叠加层 `z-index: -1`；内容在 `.frame` 里（`position: absolute`，z-index auto）。开启时给 `<html data-wallpaper="on">`，并让 `body` / `.frame` / 会话页 `.header` 背景透明（`global.css`、`App.module.css`、`SessionView.module.css`），html 自身保留 `--dsw-alias-bg-base` 兜底。
+
+**其它规则**：
+
+- 每张背景有独立「背景强度」`opacity`（0–100，步长 5），**为 0 时该层不渲染**（`WallpaperLayers` 里 `opacity > 0` 才算可见）；
+- 主页背景仅接受 PNG/JPG，选视频会 toast 拒绝；
+- 视频统一 `muted loop autoPlay playsInline`（按需求不播音轨）；
+- 背景改动**立即生效**，不走「保存修改设置」的草稿态；
+- 旧版"透明 PNG 叠在会话页"的逻辑已废弃（`WallpaperMeta.alpha` 字段与 canvas 采样一并移除）。
+
+**已验证**（真机 + 无头）：会话页 1 层（`IMG@z-2`）、主页 2 层（`-2` 会话背景 op 0.6 + `-1` 主页背景 op 1）、强度 0 时该层消失、总开关关闭后 0 层且标记移除、启动层 1.4s 后卸载、视频 `paused=false` 且 `currentTime` 循环推进。
+
 ---
 
 ## 6. 标准重建流程（改完东西后照这个走）

@@ -250,10 +250,10 @@ index dcdb5d8..72dad55 100644
 +}
 diff --git a/src/components/settings/PersonalizationPanel.tsx b/src/components/settings/PersonalizationPanel.tsx
 new file mode 100644
-index 0000000..255b88a
+index 0000000..e4bff5b
 --- /dev/null
 +++ b/src/components/settings/PersonalizationPanel.tsx
-@@ -0,0 +1,250 @@
+@@ -0,0 +1,268 @@
 +import clsx from 'clsx'
 +import { useLayoutEffect, useRef, useState } from 'react'
 +import { useTranslate } from '../../i18n/index.js'
@@ -270,6 +270,7 @@ index 0000000..255b88a
 +  saveWallpaper,
 +  setWallpaperMaster,
 +  setWallpaperOn,
++  setWallpaperOpacity,
 +  WALLPAPER_ACCEPT,
 +  type WallpaperKind,
 +  useWallpapers,
@@ -436,7 +437,8 @@ index 0000000..255b88a
 +          const item = wallpaperItems[kind]
 +          const meta = item.meta
 +          return (
-+            <div key={kind} className={styles.wallpaperRow}>
++            <div key={kind} className={styles.wallpaperGroup}>
++            <div className={styles.wallpaperRow}>
 +              <div className={styles.wallpaperInfo}>
 +                <div className={styles.wallpaperLabel}>{t(WALLPAPER_LABEL_KEYS[kind])}</div>
 +                <div className={styles.wallpaperMeta} title={meta?.name ?? ''}>
@@ -481,6 +483,22 @@ index 0000000..255b88a
 +                }}
 +              />
 +            </div>
++            <div className={styles.wallpaperOpacity}>
++              <span className={styles.wallpaperOpacityLabel}>{t('personalizationWallpaperOpacity')}</span>
++              <input
++                type="range"
++                className={styles.wallpaperOpacitySlider}
++                min={0}
++                max={100}
++                step={5}
++                value={item.opacity}
++                disabled={!wallpaperMaster || !meta}
++                aria-label={t('personalizationWallpaperOpacity')}
++                onChange={(event) => setWallpaperOpacity(kind, Number(event.target.value))}
++              />
++              <span className={styles.wallpaperOpacityValue}>{item.opacity}%</span>
++            </div>
++            </div>
 +          )
 +        })}
 +
@@ -505,10 +523,10 @@ index 0000000..255b88a
 +  )
 +}
 diff --git a/src/components/settings/Settings.module.css b/src/components/settings/Settings.module.css
-index f54e437..376daa9 100644
+index f54e437..9e1db61 100644
 --- a/src/components/settings/Settings.module.css
 +++ b/src/components/settings/Settings.module.css
-@@ -440,3 +440,240 @@
+@@ -440,3 +440,283 @@
      max-width: 100%;
    }
  }
@@ -749,11 +767,54 @@ index f54e437..376daa9 100644
 +.wallpaperClear:active {
 +  background: var(--dsw-alias-interactive-bg-hover);
 +}
++
++.wallpaperGroup {
++  display: flex;
++  flex-direction: column;
++  gap: 4px;
++  padding: 6px 0;
++}
++
++.wallpaperOpacity {
++  display: flex;
++  align-items: center;
++  gap: 10px;
++  padding-left: 2px;
++}
++
++.wallpaperOpacityLabel {
++  flex-shrink: 0;
++  font-size: 12.5px;
++  color: var(--dsw-alias-label-tertiary);
++}
++
++.wallpaperOpacitySlider {
++  flex: 1 1 0;
++  min-width: 0;
++  height: 20px;
++  margin: 0;
++  accent-color: var(--dsw-alias-brand-primary);
++  cursor: pointer;
++}
++
++.wallpaperOpacitySlider:disabled {
++  opacity: 0.45;
++  cursor: default;
++}
++
++.wallpaperOpacityValue {
++  flex-shrink: 0;
++  min-width: 34px;
++  font-size: 12.5px;
++  color: var(--dsw-alias-label-tertiary);
++  text-align: right;
++  font-variant-numeric: tabular-nums;
++}
 diff --git a/src/components/settings/Settings.module.css.d.ts b/src/components/settings/Settings.module.css.d.ts
-index 860646a..8d0561f 100644
+index 860646a..e5a0c64 100644
 --- a/src/components/settings/Settings.module.css.d.ts
 +++ b/src/components/settings/Settings.module.css.d.ts
-@@ -33,6 +33,30 @@ declare const styles: {
+@@ -33,6 +33,35 @@ declare const styles: {
    readonly "importConfirmText": string;
    readonly "deleteConfirm": string;
    readonly "deleteActions": string;
@@ -780,6 +841,11 @@ index 860646a..8d0561f 100644
 +  readonly "wallpaperLabel": string;
 +  readonly "wallpaperMeta": string;
 +  readonly "wallpaperClear": string;
++  readonly "wallpaperGroup": string;
++  readonly "wallpaperOpacity": string;
++  readonly "wallpaperOpacityLabel": string;
++  readonly "wallpaperOpacitySlider": string;
++  readonly "wallpaperOpacityValue": string;
  };
  export = styles;
  
@@ -1406,31 +1472,36 @@ index 0000000..b0bb204
 +}
 diff --git a/src/components/wallpaper/WallpaperLayers.tsx b/src/components/wallpaper/WallpaperLayers.tsx
 new file mode 100644
-index 0000000..53dc68a
+index 0000000..0688438
 --- /dev/null
 +++ b/src/components/wallpaper/WallpaperLayers.tsx
-@@ -0,0 +1,118 @@
+@@ -0,0 +1,116 @@
 +import clsx from 'clsx'
 +import { useEffect, useState } from 'react'
 +import { useChatStore } from '../../services/chat/store.js'
 +import { isVideoMeta, useWallpaperUrls, useWallpapers } from '../../services/wallpapers.js'
 +import styles from './WallpaperLayers.module.css'
 +
-+/** 启动壁纸显示时长（淡出后卸载） */
++/** 启动背景显示时长（淡出后卸载） */
 +const LAUNCH_DURATION = 1400
++
++const opacityStyle = (opacity: number) => ({ opacity: opacity / 100 })
 +
 +const WallpaperMedia = ({
 +  url,
 +  video,
 +  className,
++  style,
 +}: {
 +  url: string
 +  video: boolean
 +  className?: string
++  style?: React.CSSProperties
 +}) =>
 +  video ? (
 +    <video
 +      className={className}
++      style={style}
 +      src={url}
 +      muted
 +      loop
@@ -1440,15 +1511,15 @@ index 0000000..53dc68a
 +      aria-hidden="true"
 +    />
 +  ) : (
-+    <img className={className} src={url} alt="" aria-hidden="true" />
++    <img className={className} style={style} src={url} alt="" aria-hidden="true" />
 +  )
 +
 +/**
-+ * 壁纸层：固定在内容之下、页面背景之上。
-+ * - 主页（无会话）：主页壁纸；
-+ * - 聊天页：聊天壁纸；若主页壁纸是带透明像素的 PNG，再叠一层在聊天壁纸之上；
-+ * - 启动壁纸：最上层覆盖，短暂停留后淡出。
-+ * 视频一律 muted（按需求不播放音轨）并循环。
++ * 背景层：固定在内容之下、页面背景之上。
++ * - 会话页：只显示「会话背景」；
++ * - 主页（无会话）：「会话背景」在下、「主页背景」在上；
++ * - 启动背景：最上层覆盖，短暂停留后淡出。
++ * 每张背景各自有「背景强度」（0 接近原生、100 最清楚）；视频一律 muted（不播音轨）并循环。
 + */
 +export const WallpaperLayers = () => {
 +  const master = useWallpapers((state) => state.master)
@@ -1457,15 +1528,16 @@ index 0000000..53dc68a
 +  const activeId = useChatStore((state) => state.activeId)
 +  const [launched, setLaunched] = useState(false)
 +
-+  const chatOn = master && items.chat.on && !!urls.chat
-+  const homeOn = master && items.home.on && !!urls.home
-+  const launchOn = master && items.launch.on && !!urls.launch
-+  const homeOverlay =
-+    homeOn && items.home.meta?.mime === 'image/png' && items.home.meta.alpha === true
++  const chatOn = master && items.chat.on && !!urls.chat && items.chat.opacity > 0
++  const homeOn = master && items.home.on && !!urls.home && items.home.opacity > 0
++  const launchOn = master && items.launch.on && !!urls.launch && items.launch.opacity > 0
 +  const onChatPage = activeId !== null
-+  const anyVisible = (onChatPage ? chatOn : homeOn) || launchOn
++  // 会话页只看会话背景；主页是「会话背景 + 主页背景」
++  const showChat = chatOn
++  const showHome = !onChatPage && homeOn
++  const anyVisible = (onChatPage ? chatOn : chatOn || homeOn) || launchOn
 +
-+  // 让页面/框架背景透明，壁纸才透得出来
++  // 让页面/框架背景透明，背景才透得出来
 +  useEffect(() => {
 +    const root = document.documentElement
 +    if (anyVisible) {
@@ -1490,27 +1562,18 @@ index 0000000..53dc68a
 +
 +  return (
 +    <>
-+      {onChatPage ? (
-+        <>
-+          {chatOn ? (
-+            <WallpaperMedia
-+              className={styles.layer}
-+              url={urls.chat as string}
-+              video={isVideoMeta(items.chat.meta)}
-+            />
-+          ) : null}
-+          {homeOverlay ? (
-+            <img
-+              className={clsx(styles.layer, styles.contain, styles.overlay)}
-+              src={urls.home as string}
-+              alt=""
-+              aria-hidden="true"
-+            />
-+          ) : null}
-+        </>
-+      ) : homeOn ? (
++      {showChat ? (
 +        <WallpaperMedia
-+          className={clsx(styles.layer, items.home.meta?.alpha && styles.contain)}
++          className={styles.layer}
++          style={opacityStyle(items.chat.opacity)}
++          url={urls.chat as string}
++          video={isVideoMeta(items.chat.meta)}
++        />
++      ) : null}
++      {showHome ? (
++        <WallpaperMedia
++          className={clsx(styles.layer, styles.overlay)}
++          style={opacityStyle(items.home.opacity)}
 +          url={urls.home as string}
 +          video={false}
 +        />
@@ -1520,6 +1583,7 @@ index 0000000..53dc68a
 +        <div className={styles.launch} aria-hidden="true">
 +          <WallpaperMedia
 +            className={styles.launchMedia}
++            style={opacityStyle(items.launch.opacity)}
 +            url={urls.launch as string}
 +            video={isVideoMeta(items.launch.meta)}
 +          />
@@ -1529,7 +1593,7 @@ index 0000000..53dc68a
 +  )
 +}
 diff --git a/src/i18n/en.ts b/src/i18n/en.ts
-index 2d49027..b474764 100644
+index 2d49027..43b5d18 100644
 --- a/src/i18n/en.ts
 +++ b/src/i18n/en.ts
 @@ -6,6 +6,16 @@ export const en = {
@@ -1549,7 +1613,7 @@ index 2d49027..b474764 100644
    untitledChat: 'New chat',
    sessionLoading: 'Loading chats...',
    sessionListLoadFailed: 'Unable to load the chat list. Please try again.',
-@@ -97,6 +107,35 @@ export const en = {
+@@ -97,6 +107,36 @@ export const en = {
    settingsLocationProvince: 'Select province/region',
    settingsLocationCity: 'Select city',
    settingsLocationRegion: 'Select country or region',
@@ -1570,22 +1634,23 @@ index 2d49027..b474764 100644
 +  personalizationSave: 'Save changes',
 +  personalizationSaved: 'Changes saved',
 +  personalizationWallpaper: 'Wallpaper',
-+  personalizationWallpaperLaunch: 'Launch',
-+  personalizationWallpaperHome: 'Home',
-+  personalizationWallpaperChat: 'Chat',
++  personalizationWallpaperLaunch: 'Launch background',
++  personalizationWallpaperHome: 'Home background',
++  personalizationWallpaperChat: 'Chat background',
 +  personalizationWallpaperPick: 'Choose',
 +  personalizationWallpaperReplace: 'Change',
 +  personalizationWallpaperClear: 'Remove',
 +  personalizationWallpaperNone: 'Not set',
 +  personalizationWallpaperSaved: 'Wallpaper updated',
 +  personalizationWallpaperCleared: 'Wallpaper removed',
-+  personalizationWallpaperVideoUnsupported: 'Home wallpaper only supports images',
-+  personalizationWallpaperHint: 'Launch and chat wallpapers accept images or silent looping videos; home accepts PNG/JPG only. A transparent PNG home wallpaper is layered above the chat wallpaper.',
++  personalizationWallpaperVideoUnsupported: 'Home background only supports images',
++  personalizationWallpaperOpacity: 'Strength',
++  personalizationWallpaperHint: 'Launch and chat backgrounds accept images or silent looping videos; home accepts PNG/JPG only. The chat background covers chat pages; the home background appears on the home page only, above the chat background. Strength 0% is nearly native, 100% is clearest.',
 +  personalizationResetDone: 'Defaults restored',
    settingDialogAsideGeneralOptionLabel: 'General',
    settingDialogAsideDataOptionLabel: 'Data',
    avatarMenuSettingsDialogThemeItemLabel: 'Theme',
-@@ -144,6 +183,7 @@ export const en = {
+@@ -144,6 +184,7 @@ export const en = {
    deactivatedSearchTooltip: 'Search the web when necessary',
    search: 'Search',
    uploadFile: 'Upload files',
@@ -1594,7 +1659,7 @@ index 2d49027..b474764 100644
    uploadMaxMBSize: 'File exceeds the size limit ({size} MB). Please adjust and try again.',
    uploadMaxFiles: 'You can upload up to {count} files',
 diff --git a/src/i18n/zh.ts b/src/i18n/zh.ts
-index d99f058..6a8469e 100644
+index d99f058..d7abfaf 100644
 --- a/src/i18n/zh.ts
 +++ b/src/i18n/zh.ts
 @@ -4,6 +4,15 @@ export const zh = {
@@ -1613,7 +1678,7 @@ index d99f058..6a8469e 100644
    untitledChat: '新对话',
    sessionLoading: '正在加载对话...',
    sessionListLoadFailed: '对话列表加载失败，请重试',
-@@ -92,6 +101,35 @@ export const zh = {
+@@ -92,6 +101,36 @@ export const zh = {
    settingsLocationProvince: '请选择省份/地区',
    settingsLocationCity: '请选择市',
    settingsLocationRegion: '请选择国家或地区',
@@ -1634,22 +1699,23 @@ index d99f058..6a8469e 100644
 +  personalizationSave: '保存修改设置',
 +  personalizationSaved: '已保存修改',
 +  personalizationWallpaper: '壁纸',
-+  personalizationWallpaperLaunch: '启动壁纸',
-+  personalizationWallpaperHome: '主页壁纸',
-+  personalizationWallpaperChat: '聊天壁纸',
++  personalizationWallpaperLaunch: '启动背景',
++  personalizationWallpaperHome: '主页背景',
++  personalizationWallpaperChat: '会话背景',
 +  personalizationWallpaperPick: '选择',
 +  personalizationWallpaperReplace: '更换',
 +  personalizationWallpaperClear: '清除',
 +  personalizationWallpaperNone: '未设置',
 +  personalizationWallpaperSaved: '壁纸已更新',
 +  personalizationWallpaperCleared: '壁纸已清除',
-+  personalizationWallpaperVideoUnsupported: '主页壁纸仅支持静态图片',
-+  personalizationWallpaperHint: '启动/聊天壁纸支持图片与无声循环视频；主页壁纸仅支持 PNG/JPG。主页壁纸为透明 PNG 时会叠在聊天壁纸之上。',
++  personalizationWallpaperVideoUnsupported: '主页背景仅支持静态图片',
++  personalizationWallpaperOpacity: '背景强度',
++  personalizationWallpaperHint: '启动背景与会话背景支持图片或无声循环视频，主页背景仅支持 PNG/JPG。会话背景用于会话页；主页背景只出现在主页，并叠在会话背景之上。背景强度 0% 接近原生、100% 最清楚。',
 +  personalizationResetDone: '已恢复默认设置',
    settingDialogAsideGeneralOptionLabel: '通用设置',
    settingDialogAsideDataOptionLabel: '数据管理',
    avatarMenuSettingsDialogThemeItemLabel: '主题',
-@@ -136,6 +174,7 @@ export const zh = {
+@@ -136,6 +175,7 @@ export const zh = {
    deactivatedSearchTooltip: '按需搜索网页',
    search: '智能搜索',
    uploadFile: '上传文件',
@@ -2080,10 +2146,10 @@ index 078543b..7250311 100644
 +}
 diff --git a/src/services/wallpapers.ts b/src/services/wallpapers.ts
 new file mode 100644
-index 0000000..86a32f3
+index 0000000..c57327d
 --- /dev/null
 +++ b/src/services/wallpapers.ts
-@@ -0,0 +1,225 @@
+@@ -0,0 +1,209 @@
 +import { openDB, type IDBPDatabase } from 'idb'
 +import { useEffect, useState } from 'react'
 +import { create } from 'zustand'
@@ -2094,11 +2160,10 @@ index 0000000..86a32f3
 +export type WallpaperMeta = {
 +  mime: string
 +  name: string
-+  /** PNG 是否真的带透明像素——决定主页壁纸要不要叠在聊天壁纸之上 */
-+  alpha: boolean
 +}
 +
-+type WallpaperItem = { on: boolean; meta: WallpaperMeta | null }
++/** 每张背景：独立开关 + 背景强度（0..100，0 接近原生、100 最清楚） */
++type WallpaperItem = { on: boolean; opacity: number; meta: WallpaperMeta | null }
 +type WallpaperSettings = { master: boolean; items: Record<WallpaperKind, WallpaperItem> }
 +
 +const STORAGE_KEY = 'chat-demo:wallpapers'
@@ -2116,10 +2181,14 @@ index 0000000..86a32f3
 +export const isVideoMeta = (meta: WallpaperMeta | null | undefined): boolean =>
 +  !!meta?.mime.startsWith('video/')
 +
++export const DEFAULT_OPACITY = 100
++export const clampOpacity = (value: number): number =>
++  Number.isFinite(value) ? Math.min(100, Math.max(0, Math.round(value))) : DEFAULT_OPACITY
++
 +const defaultItems = (): Record<WallpaperKind, WallpaperItem> => ({
-+  launch: { on: true, meta: null },
-+  home: { on: true, meta: null },
-+  chat: { on: true, meta: null },
++  launch: { on: true, opacity: DEFAULT_OPACITY, meta: null },
++  home: { on: true, opacity: DEFAULT_OPACITY, meta: null },
++  chat: { on: true, opacity: DEFAULT_OPACITY, meta: null },
 +})
 +
 +const normalizeItems = (value: unknown): Record<WallpaperKind, WallpaperItem> => {
@@ -2132,11 +2201,12 @@ index 0000000..86a32f3
 +    if (!raw || typeof raw !== 'object') {
 +      continue
 +    }
-+    const record = raw as { on?: unknown; meta?: unknown }
-+    const meta = record.meta as WallpaperMeta | null | undefined
++    const record = raw as { on?: unknown; opacity?: unknown; meta?: unknown }
++    const meta = record.meta as { mime?: unknown; name?: unknown } | null | undefined
 +    items[kind] = {
 +      on: record.on !== false,
-+      meta: meta && typeof meta.mime === 'string' ? { mime: meta.mime, name: String(meta.name ?? ''), alpha: meta.alpha === true } : null,
++      opacity: clampOpacity(typeof record.opacity === 'number' ? record.opacity : DEFAULT_OPACITY),
++      meta: meta && typeof meta.mime === 'string' ? { mime: meta.mime, name: String(meta.name ?? '') } : null,
 +    }
 +  }
 +  return items
@@ -2183,7 +2253,18 @@ index 0000000..86a32f3
 +
 +const setItemMeta = (kind: WallpaperKind, meta: WallpaperMeta | null) => {
 +  const { items } = useWallpapers.getState()
-+  useWallpapers.setState({ items: { ...items, [kind]: { on: true, meta } } })
++  useWallpapers.setState({
++    items: { ...items, [kind]: { ...items[kind], on: true, meta } },
++  })
++  persist()
++}
++
++/** 背景强度：0 接近原生，100 壁纸最清楚 */
++export const setWallpaperOpacity = (kind: WallpaperKind, opacity: number) => {
++  const { items } = useWallpapers.getState()
++  useWallpapers.setState({
++    items: { ...items, [kind]: { ...items[kind], opacity: clampOpacity(opacity) } },
++  })
 +  persist()
 +}
 +
@@ -2212,40 +2293,9 @@ index 0000000..86a32f3
 +  }
 +}
 +
-+/** PNG 里是否真的有透明像素：缩到 48px 采样一次 alpha */
-+const detectAlpha = async (file: Blob): Promise<boolean> => {
-+  if (file.type !== 'image/png') {
-+    return false
-+  }
-+  try {
-+    const bitmap = await createImageBitmap(file)
-+    const size = 48
-+    const canvas = document.createElement('canvas')
-+    canvas.width = size
-+    canvas.height = size
-+    const context = canvas.getContext('2d', { willReadFrequently: true })
-+    if (!context) {
-+      return false
-+    }
-+    context.clearRect(0, 0, size, size)
-+    context.drawImage(bitmap, 0, 0, size, size)
-+    bitmap.close()
-+    const { data } = context.getImageData(0, 0, size, size)
-+    for (let index = 3; index < data.length; index += 4) {
-+      if (data[index] < 250) {
-+        return true
-+      }
-+    }
-+    return false
-+  } catch {
-+    return false
-+  }
-+}
-+
 +/** 保存壁纸：写文件 + 记录元数据（主页壁纸顺带检测透明像素） */
 +export const saveWallpaper = async (kind: WallpaperKind, file: File): Promise<void> => {
-+  const alpha = kind === 'home' ? await detectAlpha(file) : false
-+  const meta: WallpaperMeta = { mime: file.type, name: file.name, alpha }
++  const meta: WallpaperMeta = { mime: file.type, name: file.name }
 +  const db = await getDB()
 +  await db.put(STORE, { blob: file }, kind)
 +  setItemMeta(kind, meta)
