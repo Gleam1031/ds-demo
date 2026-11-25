@@ -160,6 +160,9 @@ chat-demo 用 `blob:` URL 打开附件，而 Capacitor 的 WebView 既不能把 
 - 每张背景都有「背景强度」滑杆（0–100，步长 5）；调到 0% 该层不渲染，等于回到原生观感；
 - 视频一律 `muted`（按需求不播音轨）、`loop` 循环、`playsInline`；
 - 背景文件存独立 IndexedDB（`chat-demo-wallpapers`），视频几十 MB 也不会撑爆 localStorage；开关 / 强度 / 元数据存 `chat-demo:wallpapers`；
+- 背景功能**默认关闭**；关闭时只留标题与总开关，三个选项与说明全部折叠隐藏；
+- 三张背景的顺序为 **主页背景 → 启动背景 → 会话背景**；
+- 三条「背景强度」滑轨为 #E4E7ED → #326FD9 横向渐变；
 - 背景改动**立即生效**，不受「保存修改设置」影响（与文字类设置分开）。
 
 ![背景设置](docs/device-wallpaper-panel.png)

@@ -250,10 +250,10 @@ index dcdb5d8..72dad55 100644
 +}
 diff --git a/src/components/settings/PersonalizationPanel.tsx b/src/components/settings/PersonalizationPanel.tsx
 new file mode 100644
-index 0000000..f635bb1
+index 0000000..b92b9af
 --- /dev/null
 +++ b/src/components/settings/PersonalizationPanel.tsx
-@@ -0,0 +1,271 @@
+@@ -0,0 +1,273 @@
 +import clsx from 'clsx'
 +import { useLayoutEffect, useRef, useState } from 'react'
 +import { useTranslate } from '../../i18n/index.js'
@@ -285,7 +285,7 @@ index 0000000..f635bb1
 +const TEXTAREA_MIN_HEIGHT = 40
 +
 +/** 三种壁纸：顺序即展示顺序 */
-+const WALLPAPER_KINDS: WallpaperKind[] = ['launch', 'home', 'chat']
++const WALLPAPER_KINDS: WallpaperKind[] = ['home', 'launch', 'chat']
 +
 +const WALLPAPER_LABEL_KEYS = {
 +  launch: 'personalizationWallpaperLaunch',
@@ -451,6 +451,7 @@ index 0000000..f635bb1
 +          />
 +        </div>
 +
++        {wallpaperMaster ? (<>
 +        {WALLPAPER_KINDS.map((kind) => {
 +          const item = wallpaperItems[kind]
 +          const meta = item.meta
@@ -521,15 +522,16 @@ index 0000000..f635bb1
 +        })}
 +
 +        <div className={styles.personalizationHint}>{t('personalizationWallpaperHint')}</div>
++        </>) : null}
 +      </section>
 +    </div>
 +  )
 +}
 diff --git a/src/components/settings/Settings.module.css b/src/components/settings/Settings.module.css
-index f54e437..a973e5a 100644
+index f54e437..dd1121c 100644
 --- a/src/components/settings/Settings.module.css
 +++ b/src/components/settings/Settings.module.css
-@@ -440,3 +440,299 @@
+@@ -440,3 +440,337 @@
      max-width: 100%;
    }
  }
@@ -808,17 +810,55 @@ index f54e437..a973e5a 100644
 +}
 +
 +.wallpaperOpacitySlider {
++  -webkit-appearance: none;
++  appearance: none;
 +  flex: 1 1 0;
 +  min-width: 0;
 +  height: 20px;
 +  margin: 0;
-+  accent-color: var(--dsw-alias-brand-primary);
++  background: transparent;
 +  cursor: pointer;
 +}
 +
 +.wallpaperOpacitySlider:disabled {
 +  opacity: 0.45;
 +  cursor: default;
++}
++
++/* 背景强度：从左到右 #E4E7ED → #326FD9 渐变 */
++.wallpaperOpacitySlider::-webkit-slider-runnable-track {
++  height: 8px;
++  border-radius: 4px;
++  background: linear-gradient(90deg, #e4e7ed 0%, #326fd9 100%);
++}
++
++.wallpaperOpacitySlider::-webkit-slider-thumb {
++  -webkit-appearance: none;
++  appearance: none;
++  box-sizing: border-box;
++  width: 16px;
++  height: 16px;
++  margin-top: -4px;
++  border: 0;
++  border-radius: 50%;
++  background: #fff;
++  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
++}
++
++.wallpaperOpacitySlider::-moz-range-track {
++  height: 8px;
++  border-radius: 4px;
++  background: linear-gradient(90deg, #e4e7ed 0%, #326fd9 100%);
++}
++
++.wallpaperOpacitySlider::-moz-range-thumb {
++  box-sizing: border-box;
++  width: 16px;
++  height: 16px;
++  border: 0;
++  border-radius: 50%;
++  background: #fff;
++  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 +}
 +
 +.wallpaperOpacityValue {
