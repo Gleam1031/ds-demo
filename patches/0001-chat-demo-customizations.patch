@@ -1,16 +1,38 @@
+diff --git a/src/app/App.module.css b/src/app/App.module.css
+index 7fac276..e7caa05 100644
+--- a/src/app/App.module.css
++++ b/src/app/App.module.css
+@@ -60,3 +60,8 @@
+     height: var(--app-viewport-height, 100dvh);
+   }
+ }
++
++/* 壁纸开启时框架底色透明（壁纸层在它下面） */
++:global(html[data-wallpaper='on']) .frame {
++  background-color: transparent;
++}
 diff --git a/src/app/App.tsx b/src/app/App.tsx
-index d204c0f..f189a3c 100644
+index d204c0f..138f3db 100644
 --- a/src/app/App.tsx
 +++ b/src/app/App.tsx
-@@ -24,6 +24,7 @@ import { stopReadAloud } from '../services/speech/readAloud.js'
+@@ -24,6 +24,8 @@ import { stopReadAloud } from '../services/speech/readAloud.js'
  import { CollapsedSider } from '../components/sider/CollapsedSider.js'
  import { closeMobileSider } from '../components/sider/mobileSiderState.js'
  import { MobileSider, Sider } from '../components/sider/Sider.js'
 +import { SessionSearch } from '../components/sider/SessionSearch.js'
++import { WallpaperLayers } from '../components/wallpaper/WallpaperLayers.js'
  import styles from './App.module.css'
  
  export const App = () => {
-@@ -133,6 +134,7 @@ export const App = () => {
+@@ -75,6 +77,7 @@ export const App = () => {
+ 
+   return (
+     <>
++      <WallpaperLayers />
+       <div ref={frameRef} className={styles.frame}>
+         {isMobile ? <MobileSider /> : siderCollapsed ? null : <Sider />}
+         <main className={styles.main}>
+@@ -133,6 +136,7 @@ export const App = () => {
          <SearchPanel />
        </div>
        <SettingsDialog />
@@ -18,6 +40,24 @@ index d204c0f..f189a3c 100644
        <Toast />
      </>
    )
+diff --git a/src/app/global.css b/src/app/global.css
+index 01d47a4..c3e4056 100644
+--- a/src/app/global.css
++++ b/src/app/global.css
+@@ -52,3 +52,13 @@ body.change-theme *::after {
+     overscroll-behavior-y: none;
+   }
+ }
++
++/* 壁纸开启时页面底色透明，露出下层壁纸 */
++html[data-wallpaper='on'] body {
++  background-color: transparent;
++}
++
++/* 壁纸开启时 html 兜底主题底色：透明 PNG 的空隙不会露出浏览器白底 */
++html[data-wallpaper='on'] {
++  background-color: var(--dsw-alias-bg-base);
++}
 diff --git a/src/app/viewport.ts b/src/app/viewport.ts
 index b01e996..1ebcba4 100644
 --- a/src/app/viewport.ts
@@ -37,6 +77,84 @@ index b01e996..1ebcba4 100644
      element && element !== document.body;
      element = element.parentElement
    ) {
+diff --git a/src/components/base/Switch.module.css b/src/components/base/Switch.module.css
+new file mode 100644
+index 0000000..1b6b223
+--- /dev/null
++++ b/src/components/base/Switch.module.css
+@@ -0,0 +1,39 @@
++/* 通用开关：44×26 轨道 + 20px 圆点，开启用品牌色 */
++.switch {
++  position: relative;
++  flex-shrink: 0;
++  width: 44px;
++  height: 26px;
++  padding: 0;
++  border: 0;
++  border-radius: 13px;
++  background: var(--dsw-alias-label-quaternary, rgba(0, 0, 0, 0.18));
++  cursor: pointer;
++  transition: background 0.18s ease;
++  -webkit-tap-highlight-color: transparent;
++}
++
++.switch:disabled {
++  opacity: 0.45;
++  cursor: default;
++}
++
++.on {
++  background: var(--dsw-alias-brand-primary);
++}
++
++.knob {
++  position: absolute;
++  top: 3px;
++  left: 3px;
++  width: 20px;
++  height: 20px;
++  border-radius: 50%;
++  background: #fff;
++  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
++  transition: transform 0.18s ease;
++}
++
++.on .knob {
++  transform: translateX(18px);
++}
+diff --git a/src/components/base/Switch.tsx b/src/components/base/Switch.tsx
+new file mode 100644
+index 0000000..8621639
+--- /dev/null
++++ b/src/components/base/Switch.tsx
+@@ -0,0 +1,27 @@
++import clsx from 'clsx'
++import styles from './Switch.module.css'
++
++/** 开关：鼠标和触屏都能点，`role="switch"` 方便读屏 */
++export const Switch = ({
++  checked,
++  label,
++  disabled = false,
++  onChange,
++}: {
++  checked: boolean
++  label: string
++  disabled?: boolean
++  onChange: (checked: boolean) => void
++}) => (
++  <button
++    type="button"
++    role="switch"
++    aria-checked={checked}
++    aria-label={label}
++    disabled={disabled}
++    className={clsx(styles.switch, checked && styles.on)}
++    onClick={() => onChange(!checked)}
++  >
++    <span className={styles.knob} aria-hidden="true" />
++  </button>
++)
 diff --git a/src/components/base/icons.tsx b/src/components/base/icons.tsx
 index 25f10ea..5aa4d60 100644
 --- a/src/components/base/icons.tsx
@@ -117,12 +235,25 @@ index 7a66a71..404b2f3 100644
            <IconButton
              size="m"
              tone="primary"
+diff --git a/src/components/session/SessionView.module.css b/src/components/session/SessionView.module.css
+index dcdb5d8..72dad55 100644
+--- a/src/components/session/SessionView.module.css
++++ b/src/components/session/SessionView.module.css
+@@ -68,3 +68,8 @@
+     padding-bottom: env(safe-area-inset-bottom);
+   }
+ }
++
++/* 壁纸开启时聊天页顶栏透明 */
++:global(html[data-wallpaper='on']) .header {
++  background: transparent;
++}
 diff --git a/src/components/settings/PersonalizationPanel.tsx b/src/components/settings/PersonalizationPanel.tsx
 new file mode 100644
-index 0000000..55c7385
+index 0000000..255b88a
 --- /dev/null
 +++ b/src/components/settings/PersonalizationPanel.tsx
-@@ -0,0 +1,142 @@
+@@ -0,0 +1,250 @@
 +import clsx from 'clsx'
 +import { useLayoutEffect, useRef, useState } from 'react'
 +import { useTranslate } from '../../i18n/index.js'
@@ -134,18 +265,39 @@ index 0000000..55c7385
 +  THINKING_BUDGETS,
 +  useSettings,
 +} from '../../services/settings.js'
++import {
++  clearWallpaper,
++  saveWallpaper,
++  setWallpaperMaster,
++  setWallpaperOn,
++  WALLPAPER_ACCEPT,
++  type WallpaperKind,
++  useWallpapers,
++} from '../../services/wallpapers.js'
 +import { Button } from '../base/Button.js'
 +import { IconChevronRightOutline14 } from '../base/icons.js'
++import { Switch } from '../base/Switch.js'
 +import { showToast } from '../base/toastState.js'
 +import styles from './Settings.module.css'
 +
 +/** 文本框最小高度：一行字 */
 +const TEXTAREA_MIN_HEIGHT = 40
 +
++/** 三种壁纸：顺序即展示顺序 */
++const WALLPAPER_KINDS: WallpaperKind[] = ['launch', 'home', 'chat']
++
++const WALLPAPER_LABEL_KEYS = {
++  launch: 'personalizationWallpaperLaunch',
++  home: 'personalizationWallpaperHome',
++  chat: 'personalizationWallpaperChat',
++} as const
++
 +/**
 + * 个性化页：设置弹窗内的子页面。
-+ * 编辑走草稿态——改动只有点「保存修改设置」才写入设置，返回则丢弃；
-+ * 「恢复默认设置」直接恢复并保存（并提示），符合"恢复"这个动作的直觉。
++ * 第一板块：自定义系统提示词（草稿 + 保存）；
++ * 第二板块：思考强度挡位（草稿 + 保存）；
++ * 第三板块：壁纸（立即生效，不受保存按钮影响）；
++ * 底部：恢复默认设置 / 保存修改设置。
 + */
 +export const PersonalizationPanel = ({ onBack }: { onBack: () => void }) => {
 +  const t = useTranslate()
@@ -168,6 +320,10 @@ index 0000000..55c7385
 +  ]
 +
 +  const textareaRef = useRef<HTMLTextAreaElement>(null)
++  const fileRefs = useRef<Partial<Record<WallpaperKind, HTMLInputElement | null>>>({})
++
++  const wallpaperMaster = useWallpapers((state) => state.master)
++  const wallpaperItems = useWallpapers((state) => state.items)
 +
 +  // 高度随内容增长：先复位成 auto 再量 scrollHeight，最小保持一行
 +  useLayoutEffect(() => {
@@ -190,6 +346,24 @@ index 0000000..55c7385
 +    setDraftPrompt('')
 +    setDraftLevel(DEFAULT_THINKING_LEVEL)
 +    showToast({ key: 'personalizationResetDone' })
++  }
++
++  const pickWallpaper = (kind: WallpaperKind, file: File) => {
++    if (kind === 'home' && file.type.startsWith('video/')) {
++      showToast({ key: 'personalizationWallpaperVideoUnsupported', type: 'error' })
++      return
++    }
++    void (async () => {
++      await saveWallpaper(kind, file)
++      showToast({ key: 'personalizationWallpaperSaved' })
++    })()
++  }
++
++  const clear = (kind: WallpaperKind) => {
++    void (async () => {
++      await clearWallpaper(kind)
++      showToast({ key: 'personalizationWallpaperCleared' })
++    })()
 +  }
 +
 +  return (
@@ -248,6 +422,71 @@ index 0000000..55c7385
 +        <div className={styles.personalizationHint}>{t('personalizationThinkingHint')}</div>
 +      </section>
 +
++      <section className={styles.personalizationSection}>
++        <div className={styles.personalizationTitleRow}>
++          <div className={styles.personalizationTitle}>{t('personalizationWallpaper')}</div>
++          <Switch
++            checked={wallpaperMaster}
++            label={t('personalizationWallpaper')}
++            onChange={setWallpaperMaster}
++          />
++        </div>
++
++        {WALLPAPER_KINDS.map((kind) => {
++          const item = wallpaperItems[kind]
++          const meta = item.meta
++          return (
++            <div key={kind} className={styles.wallpaperRow}>
++              <div className={styles.wallpaperInfo}>
++                <div className={styles.wallpaperLabel}>{t(WALLPAPER_LABEL_KEYS[kind])}</div>
++                <div className={styles.wallpaperMeta} title={meta?.name ?? ''}>
++                  {meta ? meta.name : t('personalizationWallpaperNone')}
++                </div>
++              </div>
++              <Switch
++                checked={item.on}
++                disabled={!wallpaperMaster}
++                label={t(WALLPAPER_LABEL_KEYS[kind])}
++                onChange={(on) => setWallpaperOn(kind, on)}
++              />
++              <Button
++                variant="outlined"
++                size="s"
++                onClick={() => fileRefs.current[kind]?.click()}
++              >
++                {meta ? t('personalizationWallpaperReplace') : t('personalizationWallpaperPick')}
++              </Button>
++              {meta ? (
++                <button
++                  type="button"
++                  className={styles.wallpaperClear}
++                  onClick={() => clear(kind)}
++                >
++                  {t('personalizationWallpaperClear')}
++                </button>
++              ) : null}
++              <input
++                ref={(node) => {
++                  fileRefs.current[kind] = node
++                }}
++                type="file"
++                hidden
++                accept={WALLPAPER_ACCEPT[kind]}
++                onChange={(event) => {
++                  const file = event.target.files?.[0]
++                  event.target.value = ''
++                  if (file) {
++                    pickWallpaper(kind, file)
++                  }
++                }}
++              />
++            </div>
++          )
++        })}
++
++        <div className={styles.personalizationHint}>{t('personalizationWallpaperHint')}</div>
++      </section>
++
 +      <div className={styles.personalizationActions}>
 +        <Button variant="outlined" size="m" className={styles.personalizationAction} onClick={restoreDefaults}>
 +          {t('personalizationReset')}
@@ -266,10 +505,10 @@ index 0000000..55c7385
 +  )
 +}
 diff --git a/src/components/settings/Settings.module.css b/src/components/settings/Settings.module.css
-index f54e437..ea3b22b 100644
+index f54e437..376daa9 100644
 --- a/src/components/settings/Settings.module.css
 +++ b/src/components/settings/Settings.module.css
-@@ -440,3 +440,196 @@
+@@ -440,3 +440,240 @@
      max-width: 100%;
    }
  }
@@ -466,12 +705,55 @@ index f54e437..ea3b22b 100644
 +.personalizationAction {
 +  flex: 1 1 0;
 +}
-\ No newline at end of file
++/* ---------- 壁纸 ---------- */
++
++.wallpaperRow {
++  display: flex;
++  align-items: center;
++  gap: 10px;
++  min-height: 44px;
++}
++
++.wallpaperInfo {
++  flex: 1 1 0;
++  min-width: 0;
++}
++
++.wallpaperLabel {
++  font-size: 13.5px;
++  line-height: 20px;
++  color: var(--dsw-alias-label-primary);
++}
++
++.wallpaperMeta {
++  overflow: hidden;
++  font-size: 12px;
++  line-height: 16px;
++  color: var(--dsw-alias-label-tertiary);
++  white-space: nowrap;
++  text-overflow: ellipsis;
++}
++
++.wallpaperClear {
++  flex-shrink: 0;
++  padding: 4px 6px;
++  border: 0;
++  border-radius: 6px;
++  background: transparent;
++  color: var(--dsw-alias-label-tertiary);
++  font-size: 12.5px;
++  cursor: pointer;
++  -webkit-tap-highlight-color: transparent;
++}
++
++.wallpaperClear:active {
++  background: var(--dsw-alias-interactive-bg-hover);
++}
 diff --git a/src/components/settings/Settings.module.css.d.ts b/src/components/settings/Settings.module.css.d.ts
-index 860646a..446692f 100644
+index 860646a..8d0561f 100644
 --- a/src/components/settings/Settings.module.css.d.ts
 +++ b/src/components/settings/Settings.module.css.d.ts
-@@ -33,6 +33,25 @@ declare const styles: {
+@@ -33,6 +33,30 @@ declare const styles: {
    readonly "importConfirmText": string;
    readonly "deleteConfirm": string;
    readonly "deleteActions": string;
@@ -493,6 +775,11 @@ index 860646a..446692f 100644
 +  readonly "personalizationArrow": string;
 +  readonly "personalizationActions": string;
 +  readonly "personalizationAction": string;
++  readonly "wallpaperRow": string;
++  readonly "wallpaperInfo": string;
++  readonly "wallpaperLabel": string;
++  readonly "wallpaperMeta": string;
++  readonly "wallpaperClear": string;
  };
  export = styles;
  
@@ -1059,8 +1346,190 @@ index 0000000..c3b4cc5
 +export const openSessionSearch = () => useSessionSearch.setState({ open: true })
 +
 +export const closeSessionSearch = () => useSessionSearch.setState({ open: false })
+diff --git a/src/components/wallpaper/WallpaperLayers.module.css b/src/components/wallpaper/WallpaperLayers.module.css
+new file mode 100644
+index 0000000..b0bb204
+--- /dev/null
++++ b/src/components/wallpaper/WallpaperLayers.module.css
+@@ -0,0 +1,52 @@
++/* 壁纸层：固定在内容后面，不接收点击。
++   z-index 用负值，保证只压在其他壁纸之上、内容之下 */
++.layer {
++  position: fixed;
++  inset: 0;
++  z-index: -2;
++  width: 100%;
++  height: 100%;
++  object-fit: cover;
++  object-position: center;
++  pointer-events: none;
++  user-select: none;
++}
++
++/* 透明 PNG 作为装饰层时要保留完整图形，不裁切 */
++.contain {
++  object-fit: contain;
++}
++
++/* 主页壁纸（透明 PNG）叠在聊天壁纸之上、正文之下 */
++.overlay {
++  z-index: -1;
++}
++
++/* 启动壁纸：盖住一切，短暂显示后淡出 */
++.launch {
++  position: fixed;
++  inset: 0;
++  z-index: 3000;
++  overflow: hidden;
++  pointer-events: none;
++  background: var(--dsw-alias-bg-base);
++  animation: wallpaperLaunchFade 1.4s ease forwards;
++}
++
++.launchMedia {
++  width: 100%;
++  height: 100%;
++  object-fit: cover;
++  object-position: center;
++}
++
++@keyframes wallpaperLaunchFade {
++  0%,
++  72% {
++    opacity: 1;
++  }
++
++  100% {
++    opacity: 0;
++  }
++}
+diff --git a/src/components/wallpaper/WallpaperLayers.tsx b/src/components/wallpaper/WallpaperLayers.tsx
+new file mode 100644
+index 0000000..53dc68a
+--- /dev/null
++++ b/src/components/wallpaper/WallpaperLayers.tsx
+@@ -0,0 +1,118 @@
++import clsx from 'clsx'
++import { useEffect, useState } from 'react'
++import { useChatStore } from '../../services/chat/store.js'
++import { isVideoMeta, useWallpaperUrls, useWallpapers } from '../../services/wallpapers.js'
++import styles from './WallpaperLayers.module.css'
++
++/** 启动壁纸显示时长（淡出后卸载） */
++const LAUNCH_DURATION = 1400
++
++const WallpaperMedia = ({
++  url,
++  video,
++  className,
++}: {
++  url: string
++  video: boolean
++  className?: string
++}) =>
++  video ? (
++    <video
++      className={className}
++      src={url}
++      muted
++      loop
++      autoPlay
++      playsInline
++      disablePictureInPicture
++      aria-hidden="true"
++    />
++  ) : (
++    <img className={className} src={url} alt="" aria-hidden="true" />
++  )
++
++/**
++ * 壁纸层：固定在内容之下、页面背景之上。
++ * - 主页（无会话）：主页壁纸；
++ * - 聊天页：聊天壁纸；若主页壁纸是带透明像素的 PNG，再叠一层在聊天壁纸之上；
++ * - 启动壁纸：最上层覆盖，短暂停留后淡出。
++ * 视频一律 muted（按需求不播放音轨）并循环。
++ */
++export const WallpaperLayers = () => {
++  const master = useWallpapers((state) => state.master)
++  const items = useWallpapers((state) => state.items)
++  const urls = useWallpaperUrls()
++  const activeId = useChatStore((state) => state.activeId)
++  const [launched, setLaunched] = useState(false)
++
++  const chatOn = master && items.chat.on && !!urls.chat
++  const homeOn = master && items.home.on && !!urls.home
++  const launchOn = master && items.launch.on && !!urls.launch
++  const homeOverlay =
++    homeOn && items.home.meta?.mime === 'image/png' && items.home.meta.alpha === true
++  const onChatPage = activeId !== null
++  const anyVisible = (onChatPage ? chatOn : homeOn) || launchOn
++
++  // 让页面/框架背景透明，壁纸才透得出来
++  useEffect(() => {
++    const root = document.documentElement
++    if (anyVisible) {
++      root.dataset.wallpaper = 'on'
++    } else {
++      delete root.dataset.wallpaper
++    }
++    return () => {
++      delete root.dataset.wallpaper
++    }
++  }, [anyVisible])
++
++  useEffect(() => {
++    if (!launchOn) {
++      setLaunched(true)
++      return
++    }
++    setLaunched(false)
++    const timer = setTimeout(() => setLaunched(true), LAUNCH_DURATION)
++    return () => clearTimeout(timer)
++  }, [launchOn])
++
++  return (
++    <>
++      {onChatPage ? (
++        <>
++          {chatOn ? (
++            <WallpaperMedia
++              className={styles.layer}
++              url={urls.chat as string}
++              video={isVideoMeta(items.chat.meta)}
++            />
++          ) : null}
++          {homeOverlay ? (
++            <img
++              className={clsx(styles.layer, styles.contain, styles.overlay)}
++              src={urls.home as string}
++              alt=""
++              aria-hidden="true"
++            />
++          ) : null}
++        </>
++      ) : homeOn ? (
++        <WallpaperMedia
++          className={clsx(styles.layer, items.home.meta?.alpha && styles.contain)}
++          url={urls.home as string}
++          video={false}
++        />
++      ) : null}
++
++      {launchOn && !launched ? (
++        <div className={styles.launch} aria-hidden="true">
++          <WallpaperMedia
++            className={styles.launchMedia}
++            url={urls.launch as string}
++            video={isVideoMeta(items.launch.meta)}
++          />
++        </div>
++      ) : null}
++    </>
++  )
++}
 diff --git a/src/i18n/en.ts b/src/i18n/en.ts
-index 2d49027..69b48f8 100644
+index 2d49027..b474764 100644
 --- a/src/i18n/en.ts
 +++ b/src/i18n/en.ts
 @@ -6,6 +6,16 @@ export const en = {
@@ -1080,7 +1549,7 @@ index 2d49027..69b48f8 100644
    untitledChat: 'New chat',
    sessionLoading: 'Loading chats...',
    sessionListLoadFailed: 'Unable to load the chat list. Please try again.',
-@@ -97,6 +107,23 @@ export const en = {
+@@ -97,6 +107,35 @@ export const en = {
    settingsLocationProvince: 'Select province/region',
    settingsLocationCity: 'Select city',
    settingsLocationRegion: 'Select country or region',
@@ -1100,11 +1569,23 @@ index 2d49027..69b48f8 100644
 +  personalizationReset: 'Restore defaults',
 +  personalizationSave: 'Save changes',
 +  personalizationSaved: 'Changes saved',
++  personalizationWallpaper: 'Wallpaper',
++  personalizationWallpaperLaunch: 'Launch',
++  personalizationWallpaperHome: 'Home',
++  personalizationWallpaperChat: 'Chat',
++  personalizationWallpaperPick: 'Choose',
++  personalizationWallpaperReplace: 'Change',
++  personalizationWallpaperClear: 'Remove',
++  personalizationWallpaperNone: 'Not set',
++  personalizationWallpaperSaved: 'Wallpaper updated',
++  personalizationWallpaperCleared: 'Wallpaper removed',
++  personalizationWallpaperVideoUnsupported: 'Home wallpaper only supports images',
++  personalizationWallpaperHint: 'Launch and chat wallpapers accept images or silent looping videos; home accepts PNG/JPG only. A transparent PNG home wallpaper is layered above the chat wallpaper.',
 +  personalizationResetDone: 'Defaults restored',
    settingDialogAsideGeneralOptionLabel: 'General',
    settingDialogAsideDataOptionLabel: 'Data',
    avatarMenuSettingsDialogThemeItemLabel: 'Theme',
-@@ -144,6 +171,7 @@ export const en = {
+@@ -144,6 +183,7 @@ export const en = {
    deactivatedSearchTooltip: 'Search the web when necessary',
    search: 'Search',
    uploadFile: 'Upload files',
@@ -1113,7 +1594,7 @@ index 2d49027..69b48f8 100644
    uploadMaxMBSize: 'File exceeds the size limit ({size} MB). Please adjust and try again.',
    uploadMaxFiles: 'You can upload up to {count} files',
 diff --git a/src/i18n/zh.ts b/src/i18n/zh.ts
-index d99f058..b2aa13c 100644
+index d99f058..6a8469e 100644
 --- a/src/i18n/zh.ts
 +++ b/src/i18n/zh.ts
 @@ -4,6 +4,15 @@ export const zh = {
@@ -1132,7 +1613,7 @@ index d99f058..b2aa13c 100644
    untitledChat: '新对话',
    sessionLoading: '正在加载对话...',
    sessionListLoadFailed: '对话列表加载失败，请重试',
-@@ -92,6 +101,23 @@ export const zh = {
+@@ -92,6 +101,35 @@ export const zh = {
    settingsLocationProvince: '请选择省份/地区',
    settingsLocationCity: '请选择市',
    settingsLocationRegion: '请选择国家或地区',
@@ -1152,11 +1633,23 @@ index d99f058..b2aa13c 100644
 +  personalizationReset: '恢复默认设置',
 +  personalizationSave: '保存修改设置',
 +  personalizationSaved: '已保存修改',
++  personalizationWallpaper: '壁纸',
++  personalizationWallpaperLaunch: '启动壁纸',
++  personalizationWallpaperHome: '主页壁纸',
++  personalizationWallpaperChat: '聊天壁纸',
++  personalizationWallpaperPick: '选择',
++  personalizationWallpaperReplace: '更换',
++  personalizationWallpaperClear: '清除',
++  personalizationWallpaperNone: '未设置',
++  personalizationWallpaperSaved: '壁纸已更新',
++  personalizationWallpaperCleared: '壁纸已清除',
++  personalizationWallpaperVideoUnsupported: '主页壁纸仅支持静态图片',
++  personalizationWallpaperHint: '启动/聊天壁纸支持图片与无声循环视频；主页壁纸仅支持 PNG/JPG。主页壁纸为透明 PNG 时会叠在聊天壁纸之上。',
 +  personalizationResetDone: '已恢复默认设置',
    settingDialogAsideGeneralOptionLabel: '通用设置',
    settingDialogAsideDataOptionLabel: '数据管理',
    avatarMenuSettingsDialogThemeItemLabel: '主题',
-@@ -136,6 +162,7 @@ export const zh = {
+@@ -136,6 +174,7 @@ export const zh = {
    deactivatedSearchTooltip: '按需搜索网页',
    search: '智能搜索',
    uploadFile: '上传文件',
@@ -1584,4 +2077,235 @@ index 078543b..7250311 100644
 +  write(KEYS.systemPrompt, null)
 +  write(KEYS.thinkingLevel, null)
 +  useSettings.setState({ systemPrompt: '', thinkingLevel: DEFAULT_THINKING_LEVEL })
++}
+diff --git a/src/services/wallpapers.ts b/src/services/wallpapers.ts
+new file mode 100644
+index 0000000..86a32f3
+--- /dev/null
++++ b/src/services/wallpapers.ts
+@@ -0,0 +1,225 @@
++import { openDB, type IDBPDatabase } from 'idb'
++import { useEffect, useState } from 'react'
++import { create } from 'zustand'
++
++/** 三种壁纸：启动页、主页（新建对话欢迎页）、聊天页 */
++export type WallpaperKind = 'launch' | 'home' | 'chat'
++
++export type WallpaperMeta = {
++  mime: string
++  name: string
++  /** PNG 是否真的带透明像素——决定主页壁纸要不要叠在聊天壁纸之上 */
++  alpha: boolean
++}
++
++type WallpaperItem = { on: boolean; meta: WallpaperMeta | null }
++type WallpaperSettings = { master: boolean; items: Record<WallpaperKind, WallpaperItem> }
++
++const STORAGE_KEY = 'chat-demo:wallpapers'
++const DB_NAME = 'chat-demo-wallpapers'
++const STORE = 'wallpapers'
++const KINDS: WallpaperKind[] = ['launch', 'home', 'chat']
++
++/** 主页壁纸只吃静态图；启动/聊天壁纸可以是图片或视频 */
++export const WALLPAPER_ACCEPT: Record<WallpaperKind, string> = {
++  launch: 'image/*,video/*',
++  home: 'image/png,image/jpeg',
++  chat: 'image/*,video/*',
++}
++
++export const isVideoMeta = (meta: WallpaperMeta | null | undefined): boolean =>
++  !!meta?.mime.startsWith('video/')
++
++const defaultItems = (): Record<WallpaperKind, WallpaperItem> => ({
++  launch: { on: true, meta: null },
++  home: { on: true, meta: null },
++  chat: { on: true, meta: null },
++})
++
++const normalizeItems = (value: unknown): Record<WallpaperKind, WallpaperItem> => {
++  const items = defaultItems()
++  if (!value || typeof value !== 'object') {
++    return items
++  }
++  for (const kind of KINDS) {
++    const raw = (value as Record<string, unknown>)[kind]
++    if (!raw || typeof raw !== 'object') {
++      continue
++    }
++    const record = raw as { on?: unknown; meta?: unknown }
++    const meta = record.meta as WallpaperMeta | null | undefined
++    items[kind] = {
++      on: record.on !== false,
++      meta: meta && typeof meta.mime === 'string' ? { mime: meta.mime, name: String(meta.name ?? ''), alpha: meta.alpha === true } : null,
++    }
++  }
++  return items
++}
++
++const readSettings = (): WallpaperSettings => {
++  try {
++    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null')
++    if (!parsed || typeof parsed !== 'object') {
++      return { master: false, items: defaultItems() }
++    }
++    return {
++      master: (parsed as { master?: unknown }).master === true,
++      items: normalizeItems((parsed as { items?: unknown }).items),
++    }
++  } catch {
++    return { master: false, items: defaultItems() }
++  }
++}
++
++export const useWallpapers = create<WallpaperSettings>(() => readSettings())
++
++const persist = () => {
++  const { master, items } = useWallpapers.getState()
++  try {
++    localStorage.setItem(STORAGE_KEY, JSON.stringify({ master, items }))
++  } catch {
++    // 存不下就只在本会话内生效
++  }
++}
++
++/** 总开关：一键开启/关闭全部壁纸 */
++export const setWallpaperMaster = (master: boolean) => {
++  useWallpapers.setState({ master })
++  persist()
++}
++
++/** 单个壁纸的独立开关 */
++export const setWallpaperOn = (kind: WallpaperKind, on: boolean) => {
++  const { items } = useWallpapers.getState()
++  useWallpapers.setState({ items: { ...items, [kind]: { ...items[kind], on } } })
++  persist()
++}
++
++const setItemMeta = (kind: WallpaperKind, meta: WallpaperMeta | null) => {
++  const { items } = useWallpapers.getState()
++  useWallpapers.setState({ items: { ...items, [kind]: { on: true, meta } } })
++  persist()
++}
++
++// ---------- 文件本体存在独立的 IndexedDB 里（视频可能有几十 MB，不能塞 localStorage） ----------
++
++let dbPromise: Promise<IDBPDatabase<unknown>> | null = null
++
++const getDB = () => {
++  dbPromise ??= openDB(DB_NAME, 1, {
++    upgrade(db) {
++      if (!db.objectStoreNames.contains(STORE)) {
++        db.createObjectStore(STORE)
++      }
++    },
++  })
++  return dbPromise
++}
++
++const loadBlob = async (kind: WallpaperKind): Promise<Blob | null> => {
++  try {
++    const db = await getDB()
++    const value = (await db.get(STORE, kind)) as { blob?: Blob } | undefined
++    return value?.blob ?? null
++  } catch {
++    return null
++  }
++}
++
++/** PNG 里是否真的有透明像素：缩到 48px 采样一次 alpha */
++const detectAlpha = async (file: Blob): Promise<boolean> => {
++  if (file.type !== 'image/png') {
++    return false
++  }
++  try {
++    const bitmap = await createImageBitmap(file)
++    const size = 48
++    const canvas = document.createElement('canvas')
++    canvas.width = size
++    canvas.height = size
++    const context = canvas.getContext('2d', { willReadFrequently: true })
++    if (!context) {
++      return false
++    }
++    context.clearRect(0, 0, size, size)
++    context.drawImage(bitmap, 0, 0, size, size)
++    bitmap.close()
++    const { data } = context.getImageData(0, 0, size, size)
++    for (let index = 3; index < data.length; index += 4) {
++      if (data[index] < 250) {
++        return true
++      }
++    }
++    return false
++  } catch {
++    return false
++  }
++}
++
++/** 保存壁纸：写文件 + 记录元数据（主页壁纸顺带检测透明像素） */
++export const saveWallpaper = async (kind: WallpaperKind, file: File): Promise<void> => {
++  const alpha = kind === 'home' ? await detectAlpha(file) : false
++  const meta: WallpaperMeta = { mime: file.type, name: file.name, alpha }
++  const db = await getDB()
++  await db.put(STORE, { blob: file }, kind)
++  setItemMeta(kind, meta)
++}
++
++/** 清除壁纸：删文件 + 清元数据 */
++export const clearWallpaper = async (kind: WallpaperKind): Promise<void> => {
++  try {
++    const db = await getDB()
++    await db.delete(STORE, kind)
++  } finally {
++    setItemMeta(kind, null)
++  }
++}
++
++/**
++ * 读出三种壁纸的 objectURL（没设置的为 undefined）。
++ * 元数据变化时重新创建，旧 URL 会被回收，避免内存泄漏。
++ */
++export const useWallpaperUrls = (): Partial<Record<WallpaperKind, string>> => {
++  const signature = useWallpapers((state) =>
++    KINDS.map(
++      (kind) => `${kind}:${state.items[kind].meta?.mime ?? ''}:${state.items[kind].meta?.name ?? ''}`
++    ).join('|')
++  )
++  const [urls, setUrls] = useState<Partial<Record<WallpaperKind, string>>>({})
++
++  useEffect(() => {
++    let cancelled = false
++    const created: Partial<Record<WallpaperKind, string>> = {}
++
++    const run = async () => {
++      for (const kind of KINDS) {
++        const blob = await loadBlob(kind)
++        if (blob && !cancelled) {
++          created[kind] = URL.createObjectURL(blob)
++        }
++      }
++      if (cancelled) {
++        for (const url of Object.values(created)) {
++          if (url) {
++            URL.revokeObjectURL(url)
++          }
++        }
++        return
++      }
++      setUrls(created)
++    }
++
++    void run()
++
++    return () => {
++      cancelled = true
++      for (const url of Object.values(created)) {
++        if (url) {
++          URL.revokeObjectURL(url)
++        }
++      }
++    }
++  }, [signature])
++
++  return urls
 +}
