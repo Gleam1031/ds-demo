@@ -199,6 +199,7 @@ messages: Too many documents: max 20 document blocks per request, got 27
   实测计算值：浅色 `rgba(15,17,21,.42)`、深色 `rgba(249,250,251,.42)`；输入框与「恢复默认设置」按钮共用同一套边框。
 - 思考强度滑杆：`appearance:none` + `::-webkit-slider-runnable-track` 自绘轨道，高 **24px**（足以包住 20px 的滑块，滑块用 `margin-top: 2px` 居中嵌在轨道里）、圆角、`linear-gradient(90deg, #6699FF, #B899FF)`；滑块是 20px 白色圆点。控件本身 `height: 40px` 作为触摸热区，`touch-action: pan-y`。
 
+**⚠ 面板自身必须是滚动容器**：设置弹窗 `.dialog` 是固定高度的 flex，原来的滚动只发生在标签页的 `.content` 上；个性化子页面替换了那层，所以 `.personalization` 自己要有 `flex: 1 1 0; min-height: 0; overflow-y: auto`（照抄 `.content` 的写法，含 `margin-right: -24px; padding: 0 24px` 对齐滚动条）。否则内容超出会被直接裁掉、且整页不能滑（用户实测报过）。底部两个按钮用 `position: sticky; bottom: 0` + 与弹窗同色的背景吸底。`viewport.ts` 的 `preventPageScroll` 会检查祖先里有没有可滚动元素，容器带上 `overflow-y: auto` 后触摸滑动自动放行。
 **保存语义**：面板内编辑走草稿态（`useState` 保存 `draftPrompt` / `draftLevel`），只有点「保存修改设置」才 `setSystemPrompt` + `setThinkingLevel` 写库；`dirty = 草稿 ≠ 已存` 用来控制保存按钮的禁用态。**返回弹窗即丢弃未保存改动**。「恢复默认设置」例外——它直接 `resetPersonalization()` 并同步草稿，符合"恢复"的直觉。两个按钮都用 `Button` 组件（`outlined` / `primary`，`size="m"`）放在 `flex` 行里 `flex: 1 1 0`，确保等宽。
 
 **存储**（`services/settings.ts`）：

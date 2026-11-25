@@ -523,10 +523,10 @@ index 0000000..e4bff5b
 +  )
 +}
 diff --git a/src/components/settings/Settings.module.css b/src/components/settings/Settings.module.css
-index f54e437..9e1db61 100644
+index f54e437..e465bd2 100644
 --- a/src/components/settings/Settings.module.css
 +++ b/src/components/settings/Settings.module.css
-@@ -440,3 +440,283 @@
+@@ -440,3 +440,296 @@
      max-width: 100%;
    }
  }
@@ -561,11 +561,19 @@ index f54e437..9e1db61 100644
 +
 +/* ---------- 个性化子页面 ---------- */
 +
++/* 面板本身要当滚动容器：弹窗是固定高度的 flex，否则内容会被裁掉 */
 +.personalization {
 +  display: flex;
++  flex: 1 1 0;
 +  flex-direction: column;
 +  gap: 20px;
-+  padding-bottom: 8px;
++  min-width: 0;
++  min-height: 0;
++  margin-right: -24px;
++  padding: 0 24px 8px;
++  overflow-y: auto;
++  overscroll-behavior: contain;
++  -webkit-overflow-scrolling: touch;
 +}
 +
 +.personalizationBack {
@@ -715,9 +723,14 @@ index f54e437..9e1db61 100644
 +}
 +
 +/* 底部两个按钮等宽并排 */
++/* 底部按钮吸底：滚动时始终可见 */
 +.personalizationActions {
++  position: sticky;
++  bottom: 0;
 +  display: flex;
 +  gap: 10px;
++  padding: 8px 0 4px;
++  background: var(--dsw-alias-bg-layer-2);
 +}
 +
 +.personalizationAction {
