@@ -250,10 +250,10 @@ index dcdb5d8..72dad55 100644
 +}
 diff --git a/src/components/settings/PersonalizationPanel.tsx b/src/components/settings/PersonalizationPanel.tsx
 new file mode 100644
-index 0000000..e4bff5b
+index 0000000..f635bb1
 --- /dev/null
 +++ b/src/components/settings/PersonalizationPanel.tsx
-@@ -0,0 +1,268 @@
+@@ -0,0 +1,271 @@
 +import clsx from 'clsx'
 +import { useLayoutEffect, useRef, useState } from 'react'
 +import { useTranslate } from '../../i18n/index.js'
@@ -423,6 +423,24 @@ index 0000000..e4bff5b
 +        <div className={styles.personalizationHint}>{t('personalizationThinkingHint')}</div>
 +      </section>
 +
++      {/* 保存/恢复属于第一模块（系统提示词 + 思考强度），放在壁纸之前 */}
++      <div className={styles.personalizationActions}>
++        <Button variant="outlined" size="m" className={styles.personalizationAction} onClick={restoreDefaults}>
++          {t('personalizationReset')}
++        </Button>
++        <Button
++          variant="primary"
++          size="m"
++          className={styles.personalizationAction}
++          disabled={!dirty}
++          onClick={save}
++        >
++          {t('personalizationSave')}
++        </Button>
++      </div>
++
++      <div className={styles.personalizationDivider} role="separator" />
++
 +      <section className={styles.personalizationSection}>
 +        <div className={styles.personalizationTitleRow}>
 +          <div className={styles.personalizationTitle}>{t('personalizationWallpaper')}</div>
@@ -504,29 +522,14 @@ index 0000000..e4bff5b
 +
 +        <div className={styles.personalizationHint}>{t('personalizationWallpaperHint')}</div>
 +      </section>
-+
-+      <div className={styles.personalizationActions}>
-+        <Button variant="outlined" size="m" className={styles.personalizationAction} onClick={restoreDefaults}>
-+          {t('personalizationReset')}
-+        </Button>
-+        <Button
-+          variant="primary"
-+          size="m"
-+          className={styles.personalizationAction}
-+          disabled={!dirty}
-+          onClick={save}
-+        >
-+          {t('personalizationSave')}
-+        </Button>
-+      </div>
 +    </div>
 +  )
 +}
 diff --git a/src/components/settings/Settings.module.css b/src/components/settings/Settings.module.css
-index f54e437..e465bd2 100644
+index f54e437..a973e5a 100644
 --- a/src/components/settings/Settings.module.css
 +++ b/src/components/settings/Settings.module.css
-@@ -440,3 +440,296 @@
+@@ -440,3 +440,299 @@
      max-width: 100%;
    }
  }
@@ -723,14 +726,17 @@ index f54e437..e465bd2 100644
 +}
 +
 +/* 底部两个按钮等宽并排 */
-+/* 底部按钮吸底：滚动时始终可见 */
++/* 第一模块（系统提示词 + 思考强度）的操作按钮 */
 +.personalizationActions {
-+  position: sticky;
-+  bottom: 0;
 +  display: flex;
 +  gap: 10px;
-+  padding: 8px 0 4px;
-+  background: var(--dsw-alias-bg-layer-2);
++}
++
++/* 第一模块与壁纸模块之间的分界线 */
++.personalizationDivider {
++  flex-shrink: 0;
++  height: 1px;
++  background: color-mix(in srgb, var(--dsw-alias-label-primary) 16%, transparent);
 +}
 +
 +.personalizationAction {
@@ -824,10 +830,10 @@ index f54e437..e465bd2 100644
 +  font-variant-numeric: tabular-nums;
 +}
 diff --git a/src/components/settings/Settings.module.css.d.ts b/src/components/settings/Settings.module.css.d.ts
-index 860646a..e5a0c64 100644
+index 860646a..1719a63 100644
 --- a/src/components/settings/Settings.module.css.d.ts
 +++ b/src/components/settings/Settings.module.css.d.ts
-@@ -33,6 +33,35 @@ declare const styles: {
+@@ -33,6 +33,36 @@ declare const styles: {
    readonly "importConfirmText": string;
    readonly "deleteConfirm": string;
    readonly "deleteActions": string;
@@ -859,6 +865,7 @@ index 860646a..e5a0c64 100644
 +  readonly "wallpaperOpacityLabel": string;
 +  readonly "wallpaperOpacitySlider": string;
 +  readonly "wallpaperOpacityValue": string;
++  readonly "personalizationDivider": string;
  };
  export = styles;
  
