@@ -916,7 +916,7 @@ index 860646a..1719a63 100644
  
 +
 diff --git a/src/components/settings/SettingsDialog.tsx b/src/components/settings/SettingsDialog.tsx
-index a74b591..7ac4731 100644
+index a74b591..df8701b 100644
 --- a/src/components/settings/SettingsDialog.tsx
 +++ b/src/components/settings/SettingsDialog.tsx
 @@ -1,6 +1,7 @@
@@ -1006,6 +1006,17 @@ index a74b591..7ac4731 100644
  const LocaleSetting = () => {
    const t = useTranslate()
    const locale = useSettings((state) => state.locale)
+@@ -304,8 +335,9 @@ const TtsVoiceSetting = () => {
+           ariaLabel={t('settingsTtsVoice')}
+           value={ttsVoice}
+           options={[
+-            { value: 'stella', label: t('settingsTtsVoiceStella') },
++            // 上男下女：暗潮（男声）在前，海星（女声）在后
+             { value: 'tide', label: t('settingsTtsVoiceTide') },
++            { value: 'stella', label: t('settingsTtsVoiceStella') },
+           ]}
+           onChange={setTtsVoice}
+         />
 diff --git a/src/components/sider/SessionItem.module.css b/src/components/sider/SessionItem.module.css
 index 6ccb2cf..86b90ce 100644
 --- a/src/components/sider/SessionItem.module.css
@@ -2079,19 +2090,29 @@ index 0000000..23a6b8f
 +  return hits.sort((a, b) => b.session.updatedAt - a.session.updatedAt).slice(0, limit)
 +}
 diff --git a/src/services/chat/store.ts b/src/services/chat/store.ts
-index 32e74a5..861a6f1 100644
+index 32e74a5..93c1f50 100644
 --- a/src/services/chat/store.ts
 +++ b/src/services/chat/store.ts
-@@ -4,7 +4,7 @@ import { ApiError, streamMessage } from '../api/client.js'
+@@ -4,7 +4,9 @@ import { ApiError, streamMessage } from '../api/client.js'
  import type { ChatModel, CreateMessageRequest } from '../api/types.js'
  import { extractFileIds, getFileErrorCode, isRetryableApiError } from '../api/errors.js'
  import { cancelUpload, describeUploadError, uploadAttachment, useUploads } from '../attachments.js'
 -import { useSettings } from '../settings.js'
 +import { DEFAULT_THINKING_LEVEL, THINKING_BUDGETS, useSettings } from '../settings.js'
++import { describeReadAloudError, toggleReadAloud } from '../speech/readAloud.js'
++import { showToast } from '../../components/base/toastState.js'
  import { appendBranch, getVisibleMessages, normalizeSession, selectVersion } from './branches.js'
  import * as db from './db.js'
  import {
-@@ -996,13 +996,20 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
+@@ -19,6 +21,7 @@ import {
+   applyEvent,
+   canContinueReply,
+   getContextRounds,
++  getReplyText,
+   settleReply,
+   toRequestMessages,
+ } from './reply.js'
+@@ -996,13 +999,20 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
            initial.thinking ?? false,
            latestReminder
          )
@@ -2115,8 +2136,21 @@ index 32e74a5..861a6f1 100644
              safety_check: SAFETY_CHECK,
              tools: serverTools(initial.search ?? false),
              ...(titleRequests.has(controller) ? { title: { enabled: true } } : {}),
+@@ -1090,5 +1100,12 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
+       ),
+     }))
+     persist(sessionId)
++    // 自动朗读：仅在正常完成（非中断/非错误）且开关打开时朗读本轮回答
++    if (useSettings.getState().autoRead && reply.status === 'done' && !controller.signal.aborted) {
++      const text = getReplyText(reply).trim()
++      if (text) {
++        toggleReadAloud(reply.id, text, (error) => showToast(describeReadAloudError(error)))
++      }
++    }
+   }
+ }
 diff --git a/src/services/settings.ts b/src/services/settings.ts
-index 078543b..7250311 100644
+index 078543b..d4e91cf 100644
 --- a/src/services/settings.ts
 +++ b/src/services/settings.ts
 @@ -7,7 +7,7 @@ export type Locale = 'zh-CN' | 'en-US'
@@ -2128,7 +2162,7 @@ index 078543b..7250311 100644
  type Settings = {
    apiKey: string | null
    locale: Locale
-@@ -17,6 +17,10 @@ type Settings = {
+@@ -17,6 +17,12 @@ type Settings = {
    thinking: boolean
    search: boolean
    siderCollapsed: boolean
@@ -2136,15 +2170,18 @@ index 078543b..7250311 100644
 +  systemPrompt: string
 +  /** 思考强度挡位，取值 0..4，对应 THINKING_BUDGETS 下标 */
 +  thinkingLevel: number
++  /** 自动朗读：回复结束后自动用 TTS 读出来 */
++  autoRead: boolean
  }
  
  const KEYS = {
-@@ -28,8 +32,20 @@ const KEYS = {
+@@ -28,8 +34,21 @@ const KEYS = {
    thinking: 'chat-demo:thinking',
    search: 'chat-demo:search',
    siderCollapsed: 'chat-demo:sider-collapsed',
 +  systemPrompt: 'chat-demo:system-prompt',
 +  thinkingLevel: 'chat-demo:thinking-level',
++  autoRead: 'chat-demo:auto-read',
  } as const
  
 +/**
@@ -2160,30 +2197,35 @@ index 078543b..7250311 100644
  const read = (key: string) => {
    try {
      return localStorage.getItem(key)
-@@ -87,6 +103,13 @@ const initialThemePreference = (): ThemePreference => {
- /** 未保存过时使用服务端默认音色 stella（海星） */
- const initialTtsVoice = (): TtsVoice => (read(KEYS.ttsVoice) === 'tide' ? 'tide' : 'stella')
+@@ -84,8 +103,15 @@ const initialThemePreference = (): ThemePreference => {
+   return saved === 'light' || saved === 'dark' ? saved : 'system'
+ }
  
+-/** 未保存过时使用服务端默认音色 stella（海星） */
+-const initialTtsVoice = (): TtsVoice => (read(KEYS.ttsVoice) === 'tide' ? 'tide' : 'stella')
++/** 未保存过时使用 tide（暗潮）；显式选过 stella（海星）的保留 */
++const initialTtsVoice = (): TtsVoice => (read(KEYS.ttsVoice) === 'stella' ? 'stella' : 'tide')
++
 +const initialThinkingLevel = (): number => {
 +  const saved = Number.parseInt(read(KEYS.thinkingLevel) ?? '', 10)
 +  return Number.isInteger(saved) && saved >= 0 && saved < THINKING_BUDGETS.length
 +    ? saved
 +    : DEFAULT_THINKING_LEVEL
 +}
-+
+ 
  export const useSettings = create<Settings>(() => ({
    apiKey: read(KEYS.apiKey),
-   locale: initialLocale(),
-@@ -96,6 +119,8 @@ export const useSettings = create<Settings>(() => ({
+@@ -96,6 +122,9 @@ export const useSettings = create<Settings>(() => ({
    thinking: read(KEYS.thinking) === 'true',
    search: read(KEYS.search) === 'true',
    siderCollapsed: read(KEYS.siderCollapsed) === 'true',
 +  systemPrompt: read(KEYS.systemPrompt) ?? '',
 +  thinkingLevel: initialThinkingLevel(),
++  autoRead: read(KEYS.autoRead) === 'true',
  }))
  
  export const setLocale = (locale: Locale) => {
-@@ -138,3 +163,24 @@ export const setSiderCollapsed = (siderCollapsed: boolean) => {
+@@ -138,3 +167,37 @@ export const setSiderCollapsed = (siderCollapsed: boolean) => {
    write(KEYS.siderCollapsed, String(siderCollapsed))
    useSettings.setState({ siderCollapsed })
  }
@@ -2208,6 +2250,20 @@ index 078543b..7250311 100644
 +  write(KEYS.thinkingLevel, null)
 +  useSettings.setState({ systemPrompt: '', thinkingLevel: DEFAULT_THINKING_LEVEL })
 +}
++export const setAutoRead = (autoRead: boolean) => {
++  write(KEYS.autoRead, String(autoRead))
++  useSettings.setState({ autoRead })
++}
++// 壳层注入的「自动朗读」按钮通过自定义事件通知应用（按钮不依赖 React）
++if (typeof window !== 'undefined') {
++  window.addEventListener('dsh:auto-read', (event) => {
++    const value = (event as CustomEvent<boolean>).detail
++    if (typeof value === 'boolean') {
++      setAutoRead(value)
++    }
++  })
++}
+\ No newline at end of file
 diff --git a/src/services/wallpapers.ts b/src/services/wallpapers.ts
 new file mode 100644
 index 0000000..c57327d

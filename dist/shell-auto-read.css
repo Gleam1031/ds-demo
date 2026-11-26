@@ -1,0 +1,30 @@
+/* 右上角「自动朗读」开关：尺寸与「关于」一致，位置由 JS 跟随（在关于/加号左侧） */
+.dsh-auto-read-btn {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  right: 62px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--dsw-alias-label-primary, #1a1a1a);
+  z-index: 940;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s ease, right 0.2s ease, color 0.15s ease;
+}
+
+/* 开启时用品牌色，和关闭态的灰底图标区分 */
+.dsh-auto-read-btn[data-on='1'] {
+  color: var(--dsw-alias-brand-primary, #4d6bfe);
+}
+
+.dsh-auto-read-btn:active {
+  background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.06));
+}

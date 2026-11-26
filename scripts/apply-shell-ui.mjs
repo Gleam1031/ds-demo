@@ -27,6 +27,7 @@ const ASSETS = [
   { css: 'shell-about.css', js: 'shell-about.js' },
   { css: 'shell-onboarding.css', js: 'shell-onboarding.js' },
   { css: 'shell-file-viewer.css', js: 'shell-file-viewer.js' },
+  { css: 'shell-auto-read.css', js: 'shell-auto-read.js' },
 ];
 
 if (!fs.existsSync(path.join(dist, 'index.html'))) {
