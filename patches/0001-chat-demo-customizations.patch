@@ -1532,10 +1532,10 @@ index 0000000..b0bb204
 +}
 diff --git a/src/components/wallpaper/WallpaperLayers.tsx b/src/components/wallpaper/WallpaperLayers.tsx
 new file mode 100644
-index 0000000..0688438
+index 0000000..8aab88b
 --- /dev/null
 +++ b/src/components/wallpaper/WallpaperLayers.tsx
-@@ -0,0 +1,116 @@
+@@ -0,0 +1,115 @@
 +import clsx from 'clsx'
 +import { useEffect, useState } from 'react'
 +import { useChatStore } from '../../services/chat/store.js'
@@ -1586,16 +1586,17 @@ index 0000000..0688438
 +  const items = useWallpapers((state) => state.items)
 +  const urls = useWallpaperUrls()
 +  const activeId = useChatStore((state) => state.activeId)
-+  const [launched, setLaunched] = useState(false)
++  // 启动层只在挂载时计时，不依赖 URL 何时就绪（否则会“先出界面、后补启动图”）
++  const [launchDone, setLaunchDone] = useState(false)
 +
-+  const chatOn = master && items.chat.on && !!urls.chat && items.chat.opacity > 0
-+  const homeOn = master && items.home.on && !!urls.home && items.home.opacity > 0
-+  const launchOn = master && items.launch.on && !!urls.launch && items.launch.opacity > 0
-+  const onChatPage = activeId !== null
-+  // 会话页只看会话背景；主页是「会话背景 + 主页背景」
-+  const showChat = chatOn
-+  const showHome = !onChatPage && homeOn
-+  const anyVisible = (onChatPage ? chatOn : chatOn || homeOn) || launchOn
++  // 是否展示看配置（不等 URL，避免先变透明再加载导致闪一下）
++  const chatConfigured = master && items.chat.on && items.chat.opacity > 0 && !!items.chat.meta
++  const homeConfigured = master && items.home.on && items.home.opacity > 0 && !!items.home.meta
++  const launchConfigured = master && items.launch.on && items.launch.opacity > 0 && !!items.launch.meta
++  const showChat = chatConfigured && !!urls.chat
++  const showHome = activeId === null && homeConfigured && !!urls.home
++  const anyVisible =
++    (activeId === null ? chatConfigured || homeConfigured : chatConfigured) || launchConfigured
 +
 +  // 让页面/框架背景透明，背景才透得出来
 +  useEffect(() => {
@@ -1611,14 +1612,10 @@ index 0000000..0688438
 +  }, [anyVisible])
 +
 +  useEffect(() => {
-+    if (!launchOn) {
-+      setLaunched(true)
-+      return
-+    }
-+    setLaunched(false)
-+    const timer = setTimeout(() => setLaunched(true), LAUNCH_DURATION)
++    setLaunchDone(false)
++    const timer = setTimeout(() => setLaunchDone(true), LAUNCH_DURATION)
 +    return () => clearTimeout(timer)
-+  }, [launchOn])
++  }, [])
 +
 +  return (
 +    <>
@@ -1639,14 +1636,16 @@ index 0000000..0688438
 +        />
 +      ) : null}
 +
-+      {launchOn && !launched ? (
++      {launchConfigured && !launchDone ? (
 +        <div className={styles.launch} aria-hidden="true">
-+          <WallpaperMedia
-+            className={styles.launchMedia}
-+            style={opacityStyle(items.launch.opacity)}
-+            url={urls.launch as string}
-+            video={isVideoMeta(items.launch.meta)}
-+          />
++          {urls.launch ? (
++            <WallpaperMedia
++              className={styles.launchMedia}
++              style={opacityStyle(items.launch.opacity)}
++              url={urls.launch}
++              video={isVideoMeta(items.launch.meta)}
++            />
++          ) : null}
 +        </div>
 +      ) : null}
 +    </>
