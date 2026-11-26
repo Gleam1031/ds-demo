@@ -267,6 +267,13 @@ A/B 实测：加回无条件 `preventDefault` 后滑杆拖不动（值停在起�
 - 背景改动**立即生效**，不走「保存修改设置」的草稿态；
 - 旧版"透明 PNG 叠在会话页"的逻辑已废弃（`WallpaperMeta.alpha` 字段与 canvas 采样一并移除）。
 
+**⚠ 输入区的白色渐变遮罩**：`SessionView.module.css` 的 `.inputContainer` 默认带 `linear-gradient(to bottom, transparent 0%, transparent 30%, var(--dsw-alias-bg-base) 30%, ...)`——它是给消息"滚到输入框下面时淡出"用的，壁纸开启后会变成一块实心白板盖住壁纸（用户实测报过"输入框下面多出白色区域"）。壁纸态下要覆盖掉：
+
+```css
+:global(html[data-wallpaper='on']) .inputContainer { background: none; }
+```
+
+同类问题检查清单：`.frame`、`body`、聊天 `.header`、`.inputContainer` —— 这四处是默认带底色、需要壁纸态放行的。
 **已验证**（真机 + 无头）：会话页 1 层（`IMG@z-2`）、主页 2 层（`-2` 会话背景 op 0.6 + `-1` 主页背景 op 1）、强度 0 时该层消失、总开关关闭后 0 层且标记移除、启动层 1.4s 后卸载、视频 `paused=false` 且 `currentTime` 循环推进。
 
 ---

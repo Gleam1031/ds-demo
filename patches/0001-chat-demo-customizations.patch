@@ -236,10 +236,10 @@ index 7a66a71..404b2f3 100644
              size="m"
              tone="primary"
 diff --git a/src/components/session/SessionView.module.css b/src/components/session/SessionView.module.css
-index dcdb5d8..72dad55 100644
+index dcdb5d8..535cd3b 100644
 --- a/src/components/session/SessionView.module.css
 +++ b/src/components/session/SessionView.module.css
-@@ -68,3 +68,8 @@
+@@ -68,3 +68,13 @@
      padding-bottom: env(safe-area-inset-bottom);
    }
  }
@@ -247,6 +247,11 @@ index dcdb5d8..72dad55 100644
 +/* 壁纸开启时聊天页顶栏透明 */
 +:global(html[data-wallpaper='on']) .header {
 +  background: transparent;
++}
++
++/* 壁纸开启时去掉输入区下方的白色渐变遮罩：它会在壁纸上盖出一块白板 */
++:global(html[data-wallpaper='on']) .inputContainer {
++  background: none;
 +}
 diff --git a/src/components/settings/PersonalizationPanel.tsx b/src/components/settings/PersonalizationPanel.tsx
 new file mode 100644
