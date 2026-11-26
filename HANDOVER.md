@@ -453,4 +453,4 @@ adb -s 10AF5B2FFY002LY install -r "…\app-debug.apk"
 
 > 已经把 DeepSeek 开源前端 chat-demo 打包成名为「DS Demo」的安卓 App（包名 com.dsdemo.shell，与旧版共存不覆盖），保留了全部版权与第三方许可声明并在 App 内加了「关于」页；改名绕开了商标问题；源码未改一行；APK 已生成，GitHub 发布方式待用户确认。
 - 图标：喇叭是**线条（stroke 1.5，fill=none）**，不是实心块；开启=喇叭+声波、关闭=喇叭+小叉。**颜色与顶栏其它按钮一致**（`--dsw-alias-label-primary`，不再用品牌蓝），开/关只靠图标区分。
-- **侧边栏抽屉打开时要隐藏**：那个位置是抽屉自己的「收起边栏」按钮（x 253..287），自动朗读在 right:62（x 254..298）会正好重叠。`MobileSider` 只在打开时挂载，所以用 `!!document.querySelector('[class*="drawer"]')` 判断，打开时加 `.dsh-auto-read-hidden`（`display:none !important`），300ms 轮询跟随。
+- **侧边栏抽屉打开时的重叠**：抽屉自己的「收起边栏」按钮在 x 253..287，自动朗读在 x 254..298，本来就同格。**用层级解决**：壳层按钮 `z-index: 700`，低于抽屉 `.drawer`(800) 与遮罩 `.drawerMask`(799)，抽屉一开就自然盖住按钮（也顺带被 App 弹窗 overlay 1000 盖住）。不要再退回"监听 DOM 隐藏按钮"的方案——轮询有延迟，过渡期照样重叠，用户已明确要求"让侧边栏图层在上"。

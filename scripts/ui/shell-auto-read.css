@@ -16,7 +16,7 @@
   background: transparent;
   /* 与顶栏其它按钮同色，开/关只靠图标区分（不再用品牌蓝） */
   color: var(--dsw-alias-label-primary, #1a1a1a);
-  z-index: 940;
+  z-index: 700;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: background-color 0.15s ease;
@@ -26,7 +26,3 @@
   background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.06));
 }
 
-/* 侧边栏抽屉打开时隐藏：那个位置是抽屉自己的「收起边栏」按钮，会重叠 */
-.dsh-auto-read-btn.dsh-auto-read-hidden {
-  display: none !important;
-}

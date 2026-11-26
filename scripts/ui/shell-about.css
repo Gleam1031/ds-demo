@@ -17,7 +17,7 @@
   border-radius: 50%;
   background: transparent;
   color: var(--dsw-alias-label-primary, #1a1a1a);
-  z-index: 940;
+  z-index: 700;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: background-color 0.15s ease, right 0.2s ease;
