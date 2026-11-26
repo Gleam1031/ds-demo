@@ -189,3 +189,8 @@
     animation: none;
   }
 }
+
+/* 只在主页显示：会话页隐藏「关于」入口 */
+.dsh-about-btn.dsh-about-hidden {
+  display: none !important;
+}

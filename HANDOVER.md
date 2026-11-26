@@ -101,6 +101,8 @@ deepseek-app/
 
 ### 5.2 「关于」入口的设计要点（改动前务必理解）
 
+> **只在主页显示**：入口（右上角 ⋮，`#dsh-about-btn`）只在欢迎页出现，会话页隐藏。`shell-about.js` 的 `syncVisibility()` 用 `document.querySelector('[class*="welcome-"]')` 判断当前是否主页（会话页渲染 SessionView，没有该容器），随 `place()` 每 800ms 同步一次，并给按钮加 `.dsh-about-hidden`（CSS 里 `display:none !important`）；同时若面板开着会 `closePanel()`。**不要改成"每个页面都显示"**——用户明确要求只在主页。
+
 - 按钮挂在 `document.body`，**不动 chat-demo 的 React 树**
 - 层级：按钮 `z-index:940`（低于 chat-demo 自己的弹窗 1000+，所以设置弹窗会自然盖住它）；backdrop 998；面板 999
 - **位置自适应**：主页右上角为空 → `right:10px`；若该位置被 App 的「新对话」按钮占用 → 自动让位 `right:62px`（几何探测，不依赖 class 名）

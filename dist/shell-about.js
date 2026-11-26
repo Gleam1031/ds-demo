@@ -42,10 +42,23 @@
     return false;
   };
 
+  /** 当前是否在主页（欢迎页）：会话页渲染的是 SessionView，没有 welcome-* 容器 */
+  const isHomePage = () => !!document.querySelector('[class*="welcome-"]');
+
+  /** 只在主页显示「关于」入口；离开主页时顺带收起已打开的面板 */
+  const syncVisibility = () => {
+    const btn = document.getElementById(BTN_ID);
+    if (!btn) return;
+    const home = isHomePage();
+    btn.classList.toggle('dsh-about-hidden', !home);
+    if (!home && open) closePanel();
+  };
+
   const place = () => {
     const btn = document.getElementById(BTN_ID);
     if (!btn) return;
     btn.dataset.shifted = isSlotBusy() ? '1' : '0';
+    syncVisibility();
   };
 
   const buildPanel = () => {
