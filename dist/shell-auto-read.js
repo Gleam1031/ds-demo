@@ -1,8 +1,10 @@
 /* 由 deepseek-shell/scripts/apply-shell-ui.mjs 注入到 dist/
  *
- * 右上角「自动朗读」开关：位置跟随“关于”按钮（主页）或 App 自己的“加号”（会话页）的左侧。
- * 只为壳层 UI，实际朗读逻辑在 chat-demo 内：按钮改写 localStorage 并派发
- * `dsh:auto-read` 事件，settings.ts 监听到后更新设置；回复结束时按开关自动朗读。
+ * 右上角「自动朗读」开关：固定放在最右侧控件的左边一格
+ * （主页是「关于」左边、会话页是「加号」左边——两者都在 right:10、宽 44，所以这里用 right:62 即可）。
+ * 注意：不要根据「关于」按钮的实时位置来算——那个按钮会在顶栏被占用时自己左移，两者会互相挤位。
+ * 实际朗读逻辑在 chat-demo 内：按钮改写 localStorage 并派发 `dsh:auto-read` 事件，
+ * settings.ts 监听后更新设置；回复结束时按开关自动朗读。
  */
 (() => {
   'use strict';
@@ -41,39 +43,11 @@
     btn.setAttribute('aria-pressed', String(on));
     btn.setAttribute('aria-label', on ? '自动朗读：已开启' : '自动朗读：已关闭');
     btn.setAttribute('title', on ? '自动朗读：已开启' : '自动朗读：已关闭');
-    const icon = on ? SPEAKER_ON : SPEAKER_OFF;
-    if (btn.dataset.icon !== (on ? 'on' : 'off')) {
-      btn.dataset.icon = on ? 'on' : 'off';
-      btn.innerHTML = icon;
+    const icon = on ? 'on' : 'off';
+    if (btn.dataset.icon !== icon) {
+      btn.dataset.icon = icon;
+      btn.innerHTML = on ? SPEAKER_ON : SPEAKER_OFF;
     }
-  };
-
-  /** 放在“关于”（主页）或最右侧按钮（会话页“加号”）的左边 */
-  const place = () => {
-    const btn = document.getElementById(BTN_ID);
-    if (!btn) return;
-    const vw = window.innerWidth;
-    let refLeft = null;
-
-    const about = document.getElementById('dsh-about-btn');
-    if (about && getComputedStyle(about).display !== 'none') {
-      refLeft = about.getBoundingClientRect().left;
-    } else {
-      let rightmost = null;
-      for (const el of document.querySelectorAll('button, [role="button"], a[href]')) {
-        if (el.id === BTN_ID) continue;
-        const style = getComputedStyle(el);
-        if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) continue;
-        const r = el.getBoundingClientRect();
-        if (!r.width || !r.height) continue;
-        if (r.top > 60 || r.bottom < 4) continue;
-        if (!rightmost || r.left > rightmost.left) rightmost = r;
-      }
-      refLeft = rightmost ? rightmost.left : vw - 10;
-    }
-
-    const right = Math.max(10, Math.round(vw - refLeft + 8));
-    btn.style.right = `${right}px`;
   };
 
   const toggle = () => {
@@ -97,14 +71,6 @@
     btn.addEventListener('click', toggle);
     document.body.append(btn);
     paint();
-    place();
-    window.addEventListener('resize', place);
-    window.addEventListener('orientationchange', place);
-    // 页面切换会换掉顶栏按钮，低频跟随即可
-    setInterval(() => {
-      place();
-      paint();
-    }, 800);
   };
 
   if (document.readyState === 'loading') {

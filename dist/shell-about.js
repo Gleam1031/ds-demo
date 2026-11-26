@@ -26,14 +26,15 @@
     '<path d="M3.7 3.7 L14.3 14.3 M14.3 3.7 L3.7 14.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>' +
     '</svg>';
 
-  /** 右上角是否已被 App 自己的按钮占用 */
+  /** 右上角是否已被 App 自己的按钮占用（壳层自己的按钮不算） */
+  const SHELL_BTN_IDS = [BTN_ID, 'dsh-auto-read-btn'];
   const isSlotBusy = () => {
     const vw = window.innerWidth;
     const slotLeft = vw - 54;
     const slotRight = vw - 10;
     const nodes = document.querySelectorAll('button, [role="button"], a[href]');
     for (const el of nodes) {
-      if (el.id === BTN_ID) continue;
+      if (SHELL_BTN_IDS.includes(el.id)) continue;
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
       if (r.top > 60 || r.bottom < 4) continue; // 只看顶栏一行
@@ -223,7 +224,7 @@
     window.addEventListener('resize', place);
     window.addEventListener('orientationchange', place);
     // 顶栏会在「主页 ↔ 会话页」之间切换按钮，用低频轮询跟上（很轻量）
-    setInterval(place, 800);
+    setInterval(place, 300);
   };
 
   if (document.readyState === 'loading') {
