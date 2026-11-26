@@ -280,6 +280,15 @@ A/B 实测：加回无条件 `preventDefault` 后滑杆拖不动（值停在起�
 
 ---
 
+## 5.11 发布记录
+
+| 版本 | 内容 |
+|---|---|
+| v1.0.4 | 背景壁纸（主页/启动/会话 + 强度滑杆）、自动朗读开关、「关于」仅主页显示、输入区白板修复、顶栏按钮挤位/抽屉重叠修复 |
+
+- 2026-11-26 已推送 `main` 并发布 [v1.0.4](https://github.com/Gleam1031/ds-demo/releases/tag/v1.0.4)，资产 `DS-Demo-v1.0.4.apk`（5.94 MB，versionCode 104）。
+- **发布说明口径**：v1.0.4 的更新说明里**不写默认音色/音色顺序的改动**（用户要求），只报壁纸与自动朗读等新增与修复。
+- 发布流程：改 `build.gradle` 的 versionCode/versionName → `gradlew assembleDebug` → 复制为 `DS-Demo-vX.Y.Z.apk` → 建 release（tag `vX.Y.Z`）+ 上传资产 → 下载回来比对 SHA-256 → 覆盖安装到真机确认 `firstInstallTime` 不变（数据保留）。
 ## 6. 标准重建流程（改完东西后照这个走）
 
 ```powershell

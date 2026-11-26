@@ -6,7 +6,8 @@
 
 | 版本 | 说明 | 下载 |
 | --- | --- | --- |
-| **v1.0.3**（最新） | 个性化设置页：自定义系统提示词、思考强度 5 档、保存/恢复默认 | [**DS-Demo-v1.0.3.apk**](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.3/DS-Demo-v1.0.3.apk) |
+| **v1.0.4**（最新） | 背景壁纸（主页／启动／会话，图片与无声视频、可调强度）、自动朗读开关 | [**DS-Demo-v1.0.4.apk**](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.4/DS-Demo-v1.0.4.apk) |
+| v1.0.3 | 个性化设置页：自定义系统提示词、思考强度 5 档、保存/恢复默认 | [DS-Demo-v1.0.3.apk](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.3/DS-Demo-v1.0.3.apk) |
 | v1.0.2 | 拍照上传、附件查看器修复、相机图标修正、个性化入口 | [DS-Demo-v1.0.2.apk](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.2/DS-Demo-v1.0.2.apk) |
 | v1.0.1 | 新增聊天记录搜索、对话置顶、附件查看器修复 | [DS-Demo-v1.0.1.apk](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.1/DS-Demo-v1.0.1.apk) |
 | v1.0.0 | 首个公开版本（含首次启动引导页） | [DS-Demo-v1.0.0.apk](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.0/DS-Demo-v1.0.0.apk) |
