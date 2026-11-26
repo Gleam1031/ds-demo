@@ -15,16 +15,21 @@
   const BTN_ID = 'dsh-auto-read-btn';
   const STORAGE_KEY = 'chat-demo:auto-read';
 
+  // 线条风格（与 App 内其它图标一致：描边、圆头，不用实心块）
+  const SPEAKER_PATH =
+    '<path d="M8.9 4.1 5.5 6.8H3.2a1 1 0 0 0-1 1v4.4a1 1 0 0 0 1 1h2.3l3.4 2.7V4.1Z" ' +
+    'stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>';
+
   const SPEAKER_ON =
     '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">' +
-    '<path d="M9.2 3.4 5.6 6.6H3.1a.9.9 0 0 0-.9.9v5a.9.9 0 0 0 .9.9h2.5l3.6 3.2V3.4Z" fill="currentColor"/>' +
-    '<path d="M12.4 7.1a4.1 4.1 0 0 1 0 5.8M15 4.8a7.6 7.6 0 0 1 0 10.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>' +
+    SPEAKER_PATH +
+    '<path d="M12.1 7.2a3.9 3.9 0 0 1 0 5.6M14.7 4.8a7.4 7.4 0 0 1 0 10.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
     '</svg>';
 
   const SPEAKER_OFF =
     '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">' +
-    '<path d="M9.2 3.4 5.6 6.6H3.1a.9.9 0 0 0-.9.9v5a.9.9 0 0 0 .9.9h2.5l3.6 3.2V3.4Z" fill="currentColor" opacity="0.55"/>' +
-    '<path d="M12.6 8.2 16.4 12M16.4 8.2l-3.8 3.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>' +
+    SPEAKER_PATH +
+    '<path d="M12.6 8.1 16.2 11.7M16.2 8.1l-3.6 3.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
     '</svg>';
 
   const isOn = () => {
