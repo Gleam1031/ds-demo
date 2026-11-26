@@ -66,6 +66,13 @@
     window.dispatchEvent(new CustomEvent('dsh:auto-read', { detail: next }));
   };
 
+  /** 侧边栏抽屉打开时让位：那个位置是抽屉自己的「收起边栏」按钮 */
+  const sync = () => {
+    const btn = document.getElementById(BTN_ID);
+    if (!btn) return;
+    btn.classList.toggle('dsh-auto-read-hidden', !!document.querySelector('[class*="drawer"]'));
+  };
+
   const install = () => {
     if (document.getElementById(BTN_ID)) return;
     const btn = document.createElement('button');
@@ -76,6 +83,9 @@
     btn.addEventListener('click', toggle);
     document.body.append(btn);
     paint();
+    sync();
+    // 抽屉开关没有事件可监听，低频跟随（很轻量：只有一次 classList 切换）
+    setInterval(sync, 300);
   };
 
   if (document.readyState === 'loading') {
