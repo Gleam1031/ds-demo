@@ -194,3 +194,10 @@
 .dsh-about-btn.dsh-about-hidden {
   display: none !important;
 }
+/* ============================================================
+   侧边栏抽屉打开时，两个壳层按钮直接隐藏（:has 即时生效，无轮询延迟）。
+   按钮都挂在 App 的 .frame 里，抽屉也在这里，所以用 frame:has(抽屉) 判断。
+   ============================================================ */
+div[class*='frame-']:has([class*='drawer']) :is(.dsh-about-btn, .dsh-auto-read-btn) {
+  display: none !important;
+}

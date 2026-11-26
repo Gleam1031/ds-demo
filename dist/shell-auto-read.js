@@ -66,6 +66,12 @@
     window.dispatchEvent(new CustomEvent('dsh:auto-read', { detail: next }));
   };
 
+  /**
+   * 挂载点：必须挂在 App 的 .frame 里（和侧边栏抽屉同一个层叠上下文），
+   * 这样 z-index 700 < 抽屉 800 才真正生效；挂在 body 上会永远压过整个 frame。
+   */
+  const mountHost = () => document.querySelector('[class*="frame-"]') || document.body;
+
   const install = () => {
     if (document.getElementById(BTN_ID)) return;
     const btn = document.createElement('button');
@@ -74,8 +80,15 @@
     btn.className = 'dsh-auto-read-btn';
     btn.dataset.icon = '';
     btn.addEventListener('click', toggle);
-    document.body.append(btn);
+    mountHost().append(btn);
     paint();
+    // frame 万一被重建，重新挂回去（很轻量）
+    setInterval(() => {
+      const el = document.getElementById(BTN_ID);
+      const host = mountHost();
+      if (!el) return;
+      if (el.parentElement !== host) host.append(el);
+    }, 1000);
   };
 
   if (document.readyState === 'loading') {

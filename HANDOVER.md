@@ -453,4 +453,7 @@ adb -s 10AF5B2FFY002LY install -r "…\app-debug.apk"
 
 > 已经把 DeepSeek 开源前端 chat-demo 打包成名为「DS Demo」的安卓 App（包名 com.dsdemo.shell，与旧版共存不覆盖），保留了全部版权与第三方许可声明并在 App 内加了「关于」页；改名绕开了商标问题；源码未改一行；APK 已生成，GitHub 发布方式待用户确认。
 - 图标：喇叭是**线条（stroke 1.5，fill=none）**，不是实心块；开启=喇叭+声波、关闭=喇叭+小叉。**颜色与顶栏其它按钮一致**（`--dsw-alias-label-primary`，不再用品牌蓝），开/关只靠图标区分。
-- **侧边栏抽屉打开时的重叠**：抽屉自己的「收起边栏」按钮在 x 253..287，自动朗读在 x 254..298，本来就同格。**用层级解决**：壳层按钮 `z-index: 700`，低于抽屉 `.drawer`(800) 与遮罩 `.drawerMask`(799)，抽屉一开就自然盖住按钮（也顺带被 App 弹窗 overlay 1000 盖住）。不要再退回"监听 DOM 隐藏按钮"的方案——轮询有延迟，过渡期照样重叠，用户已明确要求"让侧边栏图层在上"。
+- **侧边栏抽屉打开时，两个壳层按钮要被"压住/挡住"（踩过 3 次）**：抽屉自己的「收起边栏」在 x 253..287，自动朗读在 x 254..298，同格。
+  - 关键坑：`.frame` 是 `position: fixed`，**自己是层叠上下文**；抽屉的 z-index 只在 frame 内部有效。按钮若挂在 `body`（根层叠上下文），根层级恒压过整个 frame，**无论把按钮 z-index 调多低都盖不住抽屉**。
+  - 最终方案（三条一起）：① 两个按钮都 `append` 到 `div[class*="frame-"]` 里（和抽屉同一个层叠上下文），并在 1s 轮询里检查父级、被 React 重建就重新挂回；② 按钮 `z-index: 700` < 抽屉 `.drawer`(800)/`.drawerMask`(799)；③ `shell-about.css` 里一条 `div[class*='frame-']:has([class*='drawer']) :is(.dsh-about-btn, .dsh-auto-read-btn) { display: none !important; }` —— `:has()` 由 DOM 变化即时触发，**没有轮询延迟**（WebView 126 支持）。
+  - 真机实测：抽屉打开 +80ms 两个按钮就 `display:none`，关闭后恢复，不再出现叠在收起图标上的情况。

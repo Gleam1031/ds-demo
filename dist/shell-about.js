@@ -207,6 +207,14 @@
     });
   };
 
+  /**
+   * 挂载点：必须挂在 App 的 .frame 里。
+   * .frame 是 position:fixed，自己就是一个层叠上下文；抽屉的 z-index 只在 frame 内部生效。
+   * 如果按钮挂在 body 上（根层叠上下文），根层级的 z-index 永远压过整个 frame，
+   * 抽屉再高也盖不住它 —— 侧边栏打开时就会重叠。
+   */
+  const mountHost = () => document.querySelector('[class*="frame-"]') || document.body;
+
   const install = () => {
     if (document.getElementById(BTN_ID)) return;
 
@@ -218,7 +226,15 @@
     btn.setAttribute('title', '关于 / About');
     btn.innerHTML = DOTS;
     btn.addEventListener('click', showAbout);
-    document.body.append(btn);
+    mountHost().append(btn);
+
+    // frame 万一被重建，重新挂回去（很轻量）
+    setInterval(() => {
+      const el = document.getElementById(BTN_ID);
+      const host = mountHost();
+      if (!el) return;
+      if (el.parentElement !== host) host.append(el);
+    }, 1000);
 
     place();
     window.addEventListener('resize', place);
