@@ -45,3 +45,6 @@ scripts/.stats-out/
 # Internal dev log: keep local only (contains local paths, device info, troubleshooting notes)
 DEVLOG*.md
 *.internal.md
+
+# ---- 内置背景素材（有版权争议，只随内测 APK 分发，禁止入库/推送）----
+dist/defaults/

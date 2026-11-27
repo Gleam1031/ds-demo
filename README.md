@@ -6,8 +6,8 @@
 
 | 版本 | 说明 | 下载 |
 | --- | --- | --- |
-| **v1.0.4**（最新） | 背景壁纸（主页／启动／会话，图片与无声视频、可调强度）、自动朗读开关 | [**DS-Demo-v1.0.4.apk**](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.4/DS-Demo-v1.0.4.apk) |
-| v1.0.3 | 个性化设置页：自定义系统提示词、思考强度 5 档、保存/恢复默认 | [DS-Demo-v1.0.3.apk](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.3/DS-Demo-v1.0.3.apk) |
+| **v1.0.5**（最新） | 毛玻璃输入框与用户气泡（浅色白玻璃／深色黑玻璃）、个性化新增「聊天气泡框美化」开关与「玻璃不透明度」滑条、修复手机端回车不能换行 | [**DS-Demo-v1.0.5.apk**](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.5/DS-Demo-v1.0.5.apk) |
+| v1.0.4 | 背景壁纸（主页／启动／会话，图片与无声视频、可调强度）、自动朗读开关 | [DS-Demo-v1.0.4.apk](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.4/DS-Demo-v1.0.4.apk) |
 | v1.0.2 | 拍照上传、附件查看器修复、相机图标修正、个性化入口 | [DS-Demo-v1.0.2.apk](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.2/DS-Demo-v1.0.2.apk) |
 | v1.0.1 | 新增聊天记录搜索、对话置顶、附件查看器修复 | [DS-Demo-v1.0.1.apk](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.1/DS-Demo-v1.0.1.apk) |
 | v1.0.0 | 首个公开版本（含首次启动引导页） | [DS-Demo-v1.0.0.apk](https://github.com/Gleam1031/ds-demo/releases/download/v1.0.0/DS-Demo-v1.0.0.apk) |
@@ -184,6 +184,22 @@ chat-demo 用 `blob:` URL 打开附件，而 Capacitor 的 WebView 既不能把 
 - 开启后，**每次回复正常结束**会调用一次 TTS 朗读该轮回答（中断/报错不读），音色用设置里的「朗读音色」；
 - 开关状态存 `chat-demo:auto-read`，默认关闭；壳层按钮通过 `dsh:auto-read` 事件通知应用，应用侧在 `settings.ts` 监听；
 - **默认音色改为「暗潮（男声）」**（未设置过的用户；显式选过海星的保留），下拉列表按「上男下女」排列：暗潮 → 海星。
+
+**⑨ 毛玻璃：聊天输入框与用户气泡**
+
+- 聊天输入框（主页大框、会话页输入区）与**用户消息气泡**都改成半透明毛玻璃：`backdrop-filter: blur(22px) saturate(1.6)` + 半透明底 + 斜向高光 + 1px 描边 + 顶部 1px 内高光。开壁纸时背景会从玻璃后面透出来并被糊开；不开壁纸时是一张带描边与内高光的半透明卡片，同样有质感。
+- **开关与透明度在「个性化 → 聊天气泡框美化」（第三板块）**：
+  - 开关关闭 → 输入框与气泡立刻回落到原来的实心色块（浅色白底 / 深色深灰底、蓝气泡），不重载页面；
+  - 「玻璃不透明度」滑条 0–100（步长 5，默认 100）：**0% = 完全透明**（底色、描边、高光、模糊全部归零，只剩文字，壁纸原样露出）；**100% = 常规的半透明玻璃**——整条滑条只在"全透明 → 半透明"之间调，**不会**变成实心色块；
+  - 拖动即时生效；设置存 `chat-demo:glass` = `{ on, opacity }`（旧版的 `transparency` 字段读回时自动兼容），重启后保留；这两个值**不在**「恢复默认设置」的范围内（和壁纸一样属于立即生效项）。
+- **玻璃颜色跟随主题黑白**：浅色主题 = 白玻璃（白底 55% + 黑 10% 描边），深色主题 = 黑玻璃（近黑底 55% + 白 13% 描边），边框与内高光一起翻转。
+- 颜色不写死在组件里，统一定义在 `theme.css` 的 `body` / `body[data-ds-dark-theme]` 两组变量（`--dsh-glass-rgb`、`--dsh-glass-bubble-rgb`、`--dsh-glass-blur`、`--dsh-glass-stroke`、`--dsh-glass-edge`、`--dsh-glass-sheen` 系数），改一处全站生效；透明度只改 `html` 上的 `--dsh-glass-opacity`（= 1 − 透明度/100），所以不用为每个主题各写一套。
+- 消息**编辑态**（气泡上的铅笔按钮）的输入框也是玻璃，和气泡保持一致。
+- 真机实测：开/关模糊滚动帧间隔无差异（p50 16.7ms、p90 18.2ms，60fps），不影响流畅度。
+
+**⑩ 修复：手机端回车不能换行**
+
+以前回车键同时也是发送键，手机上根本没法打换行。现在**手机端回车（含软键盘上的发送键）只换行**，发送统一走右下角按钮；桌面端仍是 Enter 发送、Shift+Enter 换行。输入框会跟着行数自动长高。
 ## 填入 API Key
 
 首次启动会先显示上面的**引导页**：照着三步去官网拿 Key，回来粘贴进输入框即可；点「稍后再说」则会落到官方 demo 自带的「设置」面板，那里同样有输入框。

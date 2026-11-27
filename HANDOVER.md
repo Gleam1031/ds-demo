@@ -153,6 +153,7 @@ messages: Too many documents: max 20 document blocks per request, got 27
 | **对话置顶** | `services/chat/pins.ts`：置顶 id 存 `localStorage['chat-demo:pinned-sessions']`；`splitPinned()` 把置顶项提到最前，`Sider` 渲染「置顶」分区；`SessionItem` 菜单加「置顶/取消置顶」并显示图钉；**触屏支持长按标题**（450ms，位移 >12px 才取消，避免轻微抖动导致失效），长按后抬起不再切换会话 |
 | **个性化页** | 设置 → 通用设置 → 位置信息下方「个性化」进入**弹窗内子页面**（`PersonalizationPanel.tsx`，`SettingsDialog` 用 `personalizationOpen` 切换，返回即回到原分组）。三项：①系统提示词（占位＝默认提示词，灰色；有值用主题色）；②思考强度 5 档滑杆；③恢复默认设置。存储见下节 |
 | **拍照上传** | `ChatInput` 工具栏在语音与附件之间新增相机按钮 + 隐藏的 `<input type="file" accept="image/*" capture="environment">`；照片经现有 `acceptFiles()` 走同一上传/预览链路。**不要给 App 声明 CAMERA 权限**——Capacitor 只在"未声明"该权限时才直接走 `ACTION_IMAGE_CAPTURE`，声明了反而要运行时授权（见 `BridgeWebChromeClient.isMediaCaptureSupported()`） |
+| **手机端回车只换行** | `ChatInput.tsx` 的 `onKeyDown` 在 `isMobile`（`viewport.ts`：窄于 768px）时直接 `return`，不 `preventDefault` —— 软键盘的回车/发送键都会插入换行，发送只走右下角按钮；桌面端仍是 Enter 发送、Shift+Enter 换行。`UserMessage.tsx` 的编辑框本来就带 `!isMobile` 判断，两边行为一致 |
 
 > 搜索弹窗挂在 `App.tsx` 根部，不随侧边栏抽屉关闭而卸载。
 
@@ -280,15 +281,108 @@ A/B 实测：加回无条件 `preventDefault` 后滑杆拖不动（值停在起�
 
 ---
 
+### 5.10 毛玻璃：聊天输入框与用户气泡
+
+**改在哪**（都在 chat-demo 源码，随后重新生成 `patches/0001`）：
+
+| 文件 | 改动 |
+|---|---|
+| `src/app/theme.css` | 玻璃 token：浅色在 `body{}`、深色在 `body[data-ds-dark-theme]{}`（颜色 rgb + 描边 + 高光系数） |
+| `src/app/glass.ts` | **新增**：把开关/透明度写进 DOM（`html[data-glass]` + `--dsh-glass-opacity`），`setupGlass()` 在首屏渲染前跑一次并订阅设置变化 |
+| `src/main.tsx` | `setupTheme()` 之后加 `setupGlass()` |
+| `src/services/settings.ts` | `glassOn` / `glassOpacity` 状态、`chat-demo:glass` 存储、`setGlassOn` / `setGlassOpacity` |
+| `src/components/chatInput/ChatInput.module.css` | 基础样式保持原样（实心），玻璃样式全部挂在 `html[data-glass='on'] .wrapper` 等选择器下 |
+| `src/components/messages/UserMessage.module.css` | 同上：`.bubble` / `.editor` 的玻璃样式只在 `data-glass='on'` 时生效 |
+| `src/components/settings/PersonalizationPanel.tsx` | 第三板块「聊天气泡框美化」：标题 + `Switch` + 「玻璃不透明度」滑条（复用 `.wallpaperOpacity*` 这组"标签+滑条+数值"样式） |
+
+**为什么这样分**：基础样式 = 上游原样（实心），玻璃是**叠加层**。关闭时只是去掉 `data-glass='on'`，不需要写第二套覆盖规则，也不会出现"关掉后某个阴影还留着"的残留；`setupGlass()` 在 `createRoot` 之前执行，首帧就有正确的 `data-glass`，没有闪烁。
+
+**token 设计**（想调颜色只改这里）：
+
+```css
+body {                        /* 浅色：白玻璃 */
+  --dsh-glass-blur: 22px;
+  --dsh-glass-rgb: 255 255 255;        /* 底色 */
+  --dsh-glass-bubble-rgb: 240 245 255;
+  --dsh-glass-sheen: 0.9;              /* 斜向高光强度（满强度时） */
+  --dsh-glass-stroke-rgb: 20 30 55;    /* 描边色 */
+  --dsh-glass-stroke-alpha: 0.1;       /* 描边透明度（满强度时） */
+  --dsh-glass-edge: 0.92;              /* 顶部内高光透明度（满强度时） */
+}
+body[data-ds-dark-theme] {    /* 深色：黑玻璃 */
+  --dsh-glass-rgb: 24 25 30;
+  --dsh-glass-bubble-rgb: 31 35 44;
+  --dsh-glass-sheen: 0.13;
+  --dsh-glass-stroke-rgb: 255 255 255;
+  --dsh-glass-stroke-alpha: 0.13;
+  --dsh-glass-edge: 0.18;
+}
+```
+
+用法（底色 / 描边 / 高光 / 模糊**全部**乘同一个 0..1 的"存在感"）：
+
+```css
+background-color: rgb(var(--dsh-glass-rgb) / var(--dsh-glass-opacity, 0.55));
+border-color: rgb(var(--dsh-glass-stroke-rgb) / calc(var(--dsh-glass-opacity,.55) * var(--dsh-glass-stroke-alpha)));
+backdrop-filter: blur(calc(var(--dsh-glass-blur) * min(1, var(--dsh-glass-opacity,.55) * 1.8)))
+                 saturate(calc(1 + 0.6 * var(--dsh-glass-opacity,.55)));
+```
+
+**`--dsh-glass-opacity` 只写在 `<html>` 上**（由 `glass.ts` 设置，**= 不透明度/100 × `GLASS_MAX_ALPHA`(0.55)**），所以不要在 `body` 里再声明一个同名变量——那会把 html 继承下来的值盖掉，滑条就失效了。
+
+**语义（2026-11-27 用户三次澄清后的最终定义）**：滑条叫「玻璃不透明度」，整条滑条只在**全透明 → 半透明**之间调：
+
+- **0 = 完全透明**：底色/描边/高光/模糊全部归零，只剩文字和图标，壁纸原样露出；
+- **100 = 常规半透明玻璃**：底色 55%、描边 5.5%、模糊 21.78px（就是最初那版毛玻璃的观感）；
+- **任何位置都不会变成实心色块**——这正是「不透明度」这个名字容易被误解的地方，别再按 0..1 的透明度线性铺满。
+
+实现：`GLASS_MAX_ALPHA = 0.55`（`settings.ts`），`--dsh-glass-opacity = 不透明度/100 × 0.55`，描边/高光/模糊都和这个值同乘，所以 100% 时三者恰好等于旧版默认；默认值 100。存储 `chat-demo:glass` = `{ on, opacity }`，旧字段名 `transparency` 由 `initialGlass()` 用 `parsed.opacity ?? parsed.transparency` 兼容读回。
+
+**坑与结论**：
+
+1. **深浅色只认 `body[data-ds-dark-theme]`**（`theme.ts` 里 `applyTheme()` 设置的），不要在组件里写死白色或 `@media (prefers-color-scheme)`，否则手动选主题时玻璃不跟随。
+2. `backdrop-filter` 在 Android WebView 126 可用；**lightningcss 会自动补 `-webkit-backdrop-filter`**，iOS 侧无需手写。
+3. **真机 CDP `Page.captureScreenshot` 不会合成 `<video>` 壁纸层**（截出来是纯白底），核对"壁纸下的毛玻璃"必须用 `adb exec-out screencap -p`。CDP 截图只适合看 DOM/颜色，不适合判壁纸叠加。
+4. **验证模糊是否真的生效**：注入一条固定背景 `repeating-linear-gradient(45deg,#111 0 14px,#fff 14px 28px)`（`position:fixed; z-index:-2`），玻璃里的条纹应当被糊成柔和灰面；再读 `getComputedStyle(el).backdropFilter` 交叉核对。
+5. **性能**：真机滚动（注入 3 秒 rAF 采样）开/关 `backdrop-filter` 无差异——p50 16.7ms、p90 18.2ms、60fps；首轮 39fps + 1.2s 尖峰是冷启动解码视频壁纸，与玻璃无关。
+6. `.bubble` 的 1px 描边只在玻璃态存在（基础样式没有边框，和上游一致）：`box-sizing: border-box` 已设，`max-width` 用 `calc(100% - 88px)`，不会溢出。描边始终占 1px（透明而不是消失），所以拖滑条时文字不会因为边框消失而换行。
+7. **滑条在手机上能拖动**：`viewport.ts` 的全局 `touchmove` 只对 `input[type=range]` 放行（个性化第一版踩过的坑），新滑条沿用这个约定。
+8. `rgb(var(--x) / var(--y))` + `calc()`/`min()` 的组合 rspack/lightningcss 能正常输出（产物形如 `blur(calc(var(--dsh-glass-blur) * min(1, var(--dsh-glass-opacity,.55) * 1.8)))`）；改完建议 `grep backdrop-filter dist/static/css/*.css` 确认。
+9. **0% 时不能只把底色清零**：`saturate(1.6)` 不随透明度归零的话，壁纸会被明显提饱和，隐形状态仍能看出"一块更艳的矩形"。所以饱和度和模糊都必须乘 `--dsh-glass-opacity`（饱和用 `calc(1 + 0.6 * t)`，模糊用 `min(1, t*1.8)` 的斜坡：低透明度线性淡出、≥56% 回到满 22px 的糊度）。
+10. **改完必须重新生成补丁**，否则壳层构建会用旧补丁把改动冲掉：
+
+```powershell
+cd chat-demo
+git add -N .
+git diff --output=..\deepseek-shell\patches\0001-chat-demo-customizations.patch
+git apply --check --reverse ..\deepseek-shell\patches\0001-chat-demo-customizations.patch   # 退出码 0 才算对上
+```
+
+**已验证**：真机浅色/深色（有壁纸、无壁纸）四种组合；真机透明度 0% 时输入框 `background-color: rgba(255,255,255,0)`、`border-color` alpha 0、`backdrop-filter: blur(0px) saturate(1)`，截图里壁纸完整露出、只剩文字与图标；无头验证 4 种设置组合——0%（全归零）、55%（`--dsh-glass-opacity: 0.55`、alpha 0.55、blur 21.78px、saturate 1.33）、100%（实心）、关闭（`html[data-glass=off]`、`backdrop-filter: none`、气泡回到 `#EDF3FE` 实心）；关闭时滑条整行收起；滚动 60fps。
+
+---
+
 ## 5.11 发布记录
 
 | 版本 | 内容 |
 |---|---|
+| v1.0.5 | 毛玻璃输入框与用户气泡（浅色白玻璃/深色黑玻璃）、个性化「聊天气泡框美化」开关 +「玻璃不透明度」滑条（0% 全透明、100% 半透明玻璃）、手机端回车只换行 |
 | v1.0.4 | 背景壁纸（主页/启动/会话 + 强度滑杆）、自动朗读开关、「关于」仅主页显示、输入区白板修复、顶栏按钮挤位/抽屉重叠修复 |
 
-- 2026-11-26 已推送 `main` 并发布 [v1.0.4](https://github.com/Gleam1031/ds-demo/releases/tag/v1.0.4)，资产 `DS-Demo-v1.0.4.apk`（5.94 MB，versionCode 104）。
+- 2026-11-27 发布 [v1.0.5](https://github.com/Gleam1031/ds-demo/releases/tag/v1.0.5)，资产 `DS-Demo-v1.0.5.apk`（5.94 MB，versionCode 105）。
+- **v1.0.5 的口径（重要）**：公开版**不内置任何壁纸素材、不改 `SYSTEM_PROMPT`**。构建前已删掉 `builtinDefaults.ts` 与其在 `App.tsx` 的调用、把 `store.ts` 的 `SYSTEM_PROMPT` 还原成上游的「该助手为DeepSeek，由深度求索公司创造。」，并确认 `dist/defaults/` 与 `assets/public/defaults/` 都不存在（`gradlew clean` 后打包，否则旧 APK 里删掉的 14 MB 视频会以空洞形式留在文件里 —— 实测 20.9 MB vs 6.23 MB）。这两个"内测专属"改动保留在本地分支 `backup/internal-1.0.5`。
 - **发布说明口径**：v1.0.4 的更新说明里**不写默认音色/音色顺序的改动**（用户要求），只报壁纸与自动朗读等新增与修复。
 - 发布流程：改 `build.gradle` 的 versionCode/versionName → `gradlew assembleDebug` → 复制为 `DS-Demo-vX.Y.Z.apk` → 建 release（tag `vX.Y.Z`）+ 上传资产 → 下载回来比对 SHA-256 → 覆盖安装到真机确认 `firstInstallTime` 不变（数据保留）。
+## 5.12 内置素材内测包（仅本地分发，**不在公开仓库**）
+
+> 2026-11-27 起公开仓库已移除这套内置逻辑（见 5.11 口径）；下面记录的是"如果想再打一个内测包"的做法，代码在本地分支 `backup/internal-1.0.5`。
+
+- **用途**：把用户自己的背景素材（一段视频 + 一张 PNG）和自定义系统提示词打进 APK，只给朋友私下安装，**不上传 GitHub、不发布 Release、不推送代码**。
+- **系统提示词**：直接改 `store.ts` 里的 `SYSTEM_PROMPT` 常量（内置默认值），个人设置里留空即用它。
+- **背景素材**：`src/services/builtinDefaults.ts` 在首次启动（`chat-demo:builtin-defaults-v1` 未标记且用户一张背景都没设过）时 `fetch('defaults/home.png')`、`fetch('defaults/chat.mp4')`，用 `saveWallpaper()` 写进 IndexedDB，并设 master=on、home 100%、chat 40%、launch 关闭。升级安装不会覆盖用户已有设置。
+- **素材放置**：构建 web 后把文件拷到 `dist/defaults/`，再 `apply-shell-ui.mjs` → `cap sync` → Gradle。`dist/defaults/` 已写进 `.gitignore`（有版权，禁止入库）。
+- **产物**：`C:\Users\huiye\Desktop\DS-Demo-v1.0.5-内置壁纸.apk`（19.41 MB，versionCode 105 / versionName 1.0.5，SHA-256 `0077BD16…D150`）。
+- **注意**：内测包和公开的 v1.0.5 用同一个 versionCode 105，但内容不同——**公开仓库里没有内测包的任何素材**。以后如果再出内测包，用独立的 versionCode（现在公开已到 105，内测就从 106 起），避免同一版本号两种内容。另外：内测包那 19.41 MB 是因为塞了 14 MB 视频；如果之后从内测包改回公开包，**必须 `gradlew clean`**，否则增量打包会保留旧 APK 的空洞，产出变成 20.9 MB。
 ## 6. 标准重建流程（改完东西后照这个走）
 
 ```powershell
